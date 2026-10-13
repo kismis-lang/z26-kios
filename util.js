@@ -11,6 +11,11 @@ export const tgl = d => d ? new Date(d).toLocaleDateString('id-ID', { timeZone: 
 export const jam = d => d ? new Date(d).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }).replace(':', '.') : '';
 export const tglJam = d => d ? tgl(d) + ' ' + jam(d) : '';
 export const ini = s => (s || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+export const sak = (kg, b = 50) => { const v = (Number(kg) || 0) / (Number(b) || 50); return Math.round(v * 10) / 10; };
+export const kgsak = (kg, b = 50) => `${n(kg)} kg (${n(sak(kg, b))} sak)`;
+const p2 = x => String(x).padStart(2, '0');
+export const dtLocal = (d = new Date()) => { const x = new Date(d); return `${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}T${p2(x.getHours())}:${p2(x.getMinutes())}`; };
+export const fromLocal = v => (v ? new Date(v).toISOString() : new Date().toISOString());
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 8) : Math.random().toString(16).slice(2, 10));
 export const pct = (a, b) => b > 0 ? Math.max(0, Math.min(100, a / b * 100)) : 0;
 export const debounce = (f, ms = 180) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };
@@ -42,5 +47,12 @@ export const I = {
   chart: P('<path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3"/>'),
   truck: P('<path d="M2 6h11v10H2zM13 9h4l3 3v4h-7"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>'),
   out: P('<path d="M9 4H4v16h5M16 8l4 4-4 4M20 12H9"/>'),
+  download: P('<path d="M12 3v12M7 11l5 5 5-5M4 20h16"/>'),
+  upload: P('<path d="M12 16V4M7 8l5-5 5 5M4 20h16"/>'),
+  edit: P('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
+  trash: P('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
+  install: P('<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 8v6M9.5 11.5L12 14l2.5-2.5"/>'),
+  check: P('<path d="M5 12l5 5 9-10"/>'),
+  copy: P('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>'),
   map: P('<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
 };
