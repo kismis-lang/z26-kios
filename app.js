@@ -9,6 +9,10 @@ const root = document.documentElement;
 function applyTheme() {
   root.dataset.theme = lsGet('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   root.dataset.accent = lsGet('accent', 'hijau');
+  // warna bilah status HP (jam, baterai, sinyal) = warna latar, bukan warna tema
+  const bg = getComputedStyle(root).getPropertyValue('--bg').trim() || (root.dataset.theme === 'dark' ? '#12161d' : '#eef1f5');
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.remove());
+  const m = document.createElement('meta'); m.name = 'theme-color'; m.content = bg; document.head.appendChild(m);
 }
 applyTheme();
 
