@@ -140,8 +140,9 @@ export function stokProduk() {
     const fisik = awal + masuk - keluar - lkOut + lkIn;           // stok nyata di gudang
     const sistem = Number(pr.stok_awal) + masuk - input;          // stok menurut input aplikasi resmi
     const belakang = (Number(pr.gudang_belakang) || 0) * (Number(pr.berat_sak) || 50);   // gudang_belakang disimpan dalam SAK
-    const selisih = fisik - sistem, lebih = selisih - ba, thnLalu = Number(pr.stok_awal) - awal;
-    return { pr, k, id, awal, awalIp: Number(pr.stok_awal), masuk, input, rencana, ambil, bi, ba, kios: input - rencana, lkOut, lkIn, keluar, fisik, sistem, selisih, belakang, depan: fisik - belakang, lebih, thnLalu, sisaLebih: thnLalu + lkOut + lebih };
+    const titip = rencana - ambil;   // sdh foto blm ambil (sama dengan AppSheet: total rencana − total diambil)
+    const selisih = fisik - sistem, lebih = selisih - titip, thnLalu = Number(pr.stok_awal) - awal;
+    return { pr, k, id, awal, awalIp: Number(pr.stok_awal), masuk, input, rencana, ambil, bi, ba, kios: input - rencana, lkOut, lkIn, keluar, fisik, sistem, selisih, belakang, depan: fisik - belakang, titip, lebih, thnLalu, sisaLebih: thnLalu + lkOut + lebih };
   });
 }
 export function perPoktan() {
