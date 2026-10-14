@@ -330,3 +330,9 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 .stp .btn{padding:0;width:26px;height:auto;flex:1;min-height:15px;font-size:9px;line-height:1;border-radius:6px;justify-content:center}
 .js .jr{grid-template-columns:78px minmax(0,1fr) auto}
 .pkb .jr{grid-template-columns:78px minmax(0,1fr)}
+
+/* v12 isian nama dengan saran */
+.fld.ac{position:relative}
+.acl{position:absolute;left:0;right:0;top:100%;z-index:60;margin-top:2px;background:var(--card2);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 22px -8px var(--sh-d);max-height:220px;overflow:auto}
+.aci{padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--line)}.aci:last-child{border-bottom:0}
+.aci:hover,.aci:active{background:var(--a-soft)}
