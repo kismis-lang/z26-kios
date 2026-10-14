@@ -20,7 +20,7 @@ export async function exportPetani() {
       r.Keterangan = p.keterangan; r.DPT = p.dpt; return r;
     });
     const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, X.utils.json_to_sheet(rows), 'Data');
-    X.writeFile(wb, `data-petani-${stamp()}.xlsx`); toast('File Excel diunduh');
+    X.writeFile(wb, `data-petani-${S.tahun}-${stamp()}.xlsx`); toast('File Excel diunduh');
   } catch (e) { toast(e.message); }
 }
 export async function exportPenjualan() {
@@ -32,7 +32,7 @@ export async function exportPenjualan() {
       r.Keterangan = s.keterangan; return r;
     });
     const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, X.utils.json_to_sheet(rows), 'Penjualan');
-    X.writeFile(wb, `penjualan-${stamp()}.xlsx`); toast('File Excel diunduh');
+    X.writeFile(wb, `penjualan-${S.tahun}-${stamp()}.xlsx`); toast('File Excel diunduh');
   } catch (e) { toast(e.message); }
 }
 export async function templatePetani() {
@@ -64,7 +64,7 @@ export function openImportPetani() {
           try {
             const X = await lib(); const wb = X.read(await f.arrayBuffer(), { cellDates: true });
             const ws = wb.Sheets.Data || wb.Sheets[wb.SheetNames[0]]; const rows = X.utils.sheet_to_json(ws, { defval: '' });
-            let nextId = Math.max(0, ...S.petani.map(p => p.id_data)) + 1; const upd = [], add = [], bad = [];
+            let nextId = S.maxId + 1; const upd = [], add = [], bad = [];
             const key = (nik, pok, kom) => `${nik}|${pok}|${kom}`; const idx = {}; S.petani.forEach(p => idx[key(p.nik, p.poktan, p.komoditas)] = p);
             rows.forEach((r, i) => {
               const nama = String(pick(r, ['Nama Petani', 'Nama'])).trim(); if (!nama) return bad.push(i + 2);
@@ -73,7 +73,7 @@ export function openImportPetani() {
                 kuota_urea: num(pick(r, ['Kuota Urea', 'Pupuk Urea N 46%', 'Urea'])), kuota_phonska: num(pick(r, ['Kuota Phonska', 'Pupuk NPK Phonska', 'Phonska'])), kuota_organik: num(pick(r, ['Kuota Organik', 'Pupuk Organik', 'Organik'])), kuota_za: num(pick(r, ['Kuota ZA', 'Pupuk ZA', 'ZA'])),
                 keterangan: String(pick(r, ['Keterangan'])).trim() || null, dpt: String(pick(r, ['DPT'])).trim() || null };
               const idIn = Number(pick(r, ['ID_Data', 'ID'])); const ex = (idIn && S.pid[idIn]) || idx[key(nik, pok, kom)];
-              if (ex) upd.push({ id_data: ex.id_data, ...row }); else add.push({ id_data: nextId++, ...row });
+              if (ex) upd.push({ id_data: ex.id_data, ...row }); else add.push({ id_data: nextId++, tahun: S.tahun, ...row });
             });
             plan = [...upd, ...add];
             $('#xRes', d).innerHTML = `<div class="card" style="padding:10px"><b>${n(rows.length)}</b> baris dibaca<br>Diperbarui: <b>${n(upd.length)}</b> · Baru: <b>${n(add.length)}</b>${bad.length ? ` · Dilewati (tanpa nama): ${bad.length}` : ''}</div>`;
@@ -86,7 +86,7 @@ export function openImportPetani() {
             const { error } = await sb.from('petani').upsert(plan.slice(i, i + 300), { onConflict: 'id_data' });
             if (error) { toast('Gagal: ' + error.message); return; } ok += Math.min(300, plan.length - i);
           }
-          toast(`${ok} data petani diproses`); closeDrawer(); await reloadTx(); hooks.refresh();
+          S.maxId = Math.max(S.maxId, ...plan.map(x => x.id_data)); toast(`${ok} data petani diproses`); closeDrawer(); await reloadTx(); hooks.refresh();
         };
       },
     });

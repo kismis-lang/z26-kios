@@ -25,13 +25,24 @@ const loadTess = () => tessP ||= new Promise((res, rej) => {
   const el = document.createElement('script'); el.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
   el.onload = () => res(window.Tesseract); el.onerror = () => { tessP = null; rej(new Error('Gagal memuat pembaca gambar (cek koneksi)')); }; document.head.appendChild(el);
 });
-const BULAN = { januari: 1, februari: 2, maret: 3, april: 4, mei: 5, juni: 6, juli: 7, agustus: 8, september: 9, oktober: 10, november: 11, desember: 12 };
-export function parseShot(text) {
+const BLN3 = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, jun: 6, jul: 7, agu: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+const AMB = { 0: '[0O]', O: '[0O]', 1: '[1Il|]', I: '[1Il|]', L: '[1Il|]', '|': '[1Il|]', 5: '[5S]', S: '[5S]', 8: '[8B]', B: '[8B]', 2: '[2Z]', Z: '[2Z]' };
+const canon = t => [...String(t).toUpperCase()].map(c => ({ O: '0', I: '1', L: '1', '|': '1', S: '5', B: '8', Z: '2' }[c] || c)).join('');
+export function parseShot(text, hint) {
   const t = text.replace(/\r/g, ''), r = { items: {} };
-  const m = /(S[0-9A-Z]{5})\s*[\\\/|Il]\s*([0-9A-Z]{6})/i.exec(t.replace(/O(?=[0-9A-Z]{5}\b)/g, 'O')); if (m) r.no = (m[1] + '\\' + m[2]).toUpperCase();
+  // no. pesanan: awalan (6 huruf/angka) + pemisah "\" + 6 karakter (sesi + hitung)
+  const pre = ((hint || '').split('\\')[0] || '').toUpperCase();
+  let m = null;
+  if (pre.length >= 4) m = new RegExp('(?:' + [...pre].map(c => AMB[c] || c).join('') + ')\\s*[^0-9A-Za-z\\s]{0,3}\\s*([0-9A-Za-z]{6})', 'i').exec(t);
+  if (!m) m = /S[0-9A-Z]{5}\s*[^0-9A-Z\s]{0,3}\s*([0-9A-Z]{6})/i.exec(t);
+  if (m) r.no = ((pre.length >= 4 ? pre : m[0].slice(0, 6).toUpperCase()) + '\\' + m[1].toUpperCase());
   const nik = /\b(\d{16})\b/.exec(t.replace(/(\d)\s(?=\d{4}\b)/g, '$1')); if (nik) r.nik = nik[1];
-  const tg = /(\d{1,2})\s*[.:]\s*(\d{2})\s*[•·.\-]*\s*(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/.exec(t);
-  if (tg && BULAN[tg[4].toLowerCase()]) r.tgl = `${tg[5]}-${String(BULAN[tg[4].toLowerCase()]).padStart(2, '0')}-${tg[3].padStart(2, '0')}T${tg[1].padStart(2, '0')}:${tg[2]}`;
+  const dm = /(\d{1,2})\s+([A-Za-z]{3,10})\s+(20\d{2})/.exec(t);
+  if (dm && BLN3[dm[2].slice(0, 3).toLowerCase()]) {
+    const before = t.slice(Math.max(0, dm.index - 16), dm.index), tm = /(\d{1,2})\s*[.:]\s*(\d{2})\D*$/.exec(before);
+    r.tgl = `${dm[3]}-${String(BLN3[dm[2].slice(0, 3).toLowerCase()]).padStart(2, '0')}-${dm[1].padStart(2, '0')}T${tm ? tm[1].padStart(2, '0') + ':' + tm[2] : '08:00'}`;
+  }
+  r.langsung = /petani\s*langsung/i.test(t);
   const kom = /(jagung|padi|tebu)/i.exec(t.slice(t.search(/komoditas/i) >= 0 ? t.search(/komoditas/i) : 0)); if (kom) r.kom = kom[1].toLowerCase();
   const prodRe = { urea: /urea/i, phonska: /phonska|npk/i, organik: /organik/i, za: /\bZA\b/ };
   const from = Math.max(0, t.search(/produk/i));
@@ -41,33 +52,49 @@ export function parseShot(text) {
 export async function scanShot(file, onStatus) {
   onStatus('Memuat pembaca gambar…'); const T = await loadTess();
   onStatus('Membaca gambar…'); const w = await T.createWorker('eng');
-  try { const { data } = await w.recognize(file); return parseShot(data.text || ''); } finally { await w.terminate(); }
+  try {
+    const { data } = await w.recognize(file);
+    const hint = lsGet('noPref', '') || (S.pen.find(x => NO_RE.test(x.no_pesanan)) || {}).no_pesanan || '';
+    const r = parseShot(data.text || '', hint); r.raw = data.text;
+    if (r.no) { const pred = nextNo(); if (pred && canon(pred) === canon(r.no)) r.no = pred; } // samakan huruf O/0, I/1 yang sering tertukar
+    return r;
+  } finally { await w.terminate(); }
 }
 
 // ===== tambah / ubah penjualan =====
 export function openJual(rec, edit) {
-  let cur = rec || null, pend = null;
+  let cur = rec || null, pend = null, picks = null;
   const sale = edit || null;
-  const prods = () => KODE.map(k => S.byKode[k]).filter(k => k && cur && (cur.q[k.kode] > 0 || cur.in[k.kode] > 0));
+  const prods = () => KODE.map(k => S.byKode[k]).filter(k => k && cur && (cur.q[k.kode] > 0 || cur.in[k.kode] > 0 || (sale && (sale.in[k.kode] || sale.rc[k.kode]))));
   const scanBar = `<div class="bar"><label class="btn sm" style="cursor:pointer">${I.camera} Scan screenshot transaksi<input type="file" accept="image/*" id="jScan" hidden></label><span class="sm mut" id="jScanSt"></span></div>`;
   const sisaK = k => cur.q[k] - cur.in[k] + (sale ? sale.in[k] : 0);
+  const bfPicks = () => S.bf.filter(x => x.id_data === cur.id_data).map(x => ({ tgl: dtLocal(x.tanggal_waktu), bf: true, am: Object.fromEntries(KODE.map(k => [k, +x[k] || 0])) }));
+  const initPicks = () => {
+    if (picks) return;
+    if (sale) picks = sale.picks.map(x => ({ tgl: dtLocal(x.tanggal_waktu), am: Object.fromEntries(KODE.map(k => [k, +x[k] || 0])) }));
+    else picks = sum(cur.bi) > 0 ? bfPicks() : [];
+  };
+  const pkHtml = (pk, i) => `<div class="pkb" data-pi="${i}"${pk.bf ? ' data-bf="1"' : ''}><div class="pkh"><input class="in" type="datetime-local" data-f="tgl" value="${pk.tgl}"${pk.auto ? ' data-auto="1"' : ''}>${pk.bf ? '<span class="tag bad">sebelum input</span>' : ''}<button class="btn xs bad" data-delpk title="Hapus pengambilan ini">${I.trash}</button></div>
+    ${prods().map(p => `<div class="jr c-${p.kode}" data-pk="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><input class="in" type="number" inputmode="decimal" min="0" data-f="am" value="${pk.am[p.kode] || ''}"><span class="jk mut sm" data-i="am"></span></div>`).join('')}</div>`;
   const body = () => {
     if (!cur) return `${sale ? '' : scanBar}<div class="fld"><label>Petani</label>${pickerHtml('jPk')}</div><p class="mut sm">Pilih petani dulu (atau scan screenshot). Satu NIK bisa punya beberapa data (komoditas / poktan); pilih yang sesuai.</p>`;
+    initPicks();
     const bi = sum(cur.bi), P = prods();
     const row = (p, f, val, extra = '') => `<div class="jr c-${p.kode}" data-k="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><input class="in" type="number" inputmode="decimal" min="0" data-f="${f}" value="${val}">${extra}<span class="jk mut sm" data-i="${f}"></span></div>`;
     const sec = (no, jud, sub, btn, rows) => `<div class="card js" style="margin-bottom:8px;padding:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b>${no}. ${jud}</b>${btn}</div><div class="mut sm" style="margin-bottom:3px">${sub}</div>${rows}</div>`;
     return `${ringkasPetani(cur)}${sale ? '' : scanBar}
     <div class="row2"><div class="fld"><label>No. pesanan (otomatis, boleh diubah)</label><input class="in b" id="jNo" placeholder="mis. S0CFJ1\\7002OW" value="${esc(sale?.no_pesanan || pend?.no || nextNo())}" ${sale ? 'readonly' : ''} autocomplete="off"></div>
-    <div class="fld"><label>Tanggal & jam</label><input class="in" id="jTg" type="datetime-local" value="${pend?.tgl || dtLocal(sale?.tanggal_waktu || new Date())}"></div></div>
-    ${!sale && bi > 0 ? `<label class="card" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:9px"><input type="checkbox" id="jBi" checked><span><b>Sudah mengambil sebelum diinput</b><br><span class="sm">${KODE.filter(k => cur.bi[k] > 0).map(k => `${NAMA[k]} ${n(cur.bi[k])} kg`).join(' · ')} — dimasukkan sebagai "diambil" di penjualan ini, lalu dihapus dari daftar Belum input.</span></span></label>` : ''}
+    <div class="fld"><label>Tanggal & jam transaksi</label><input class="in" id="jTg" type="datetime-local" value="${pend?.tgl || dtLocal(sale?.tanggal_waktu || new Date())}"></div></div>
+    ${!sale && bi > 0 ? `<label class="card" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:9px"><input type="checkbox" id="jBi" ${picks.some(x => x.bf) ? 'checked' : ''}><span><b>Sudah mengambil sebelum diinput</b><br><span class="sm">${KODE.filter(k => cur.bi[k] > 0).map(k => `${NAMA[k]} ${n(cur.bi[k])} kg`).join(' · ')} — dimasukkan sebagai pengambilan (sesuai tanggal catatannya), lalu dihapus dari daftar Belum input.</span></span></label>` : ''}
     ${P.length ? `${sec(1, 'Input (aplikasi resmi)', 'Jumlah yang diinput di aplikasi pupuk resmi. Mengurangi stok resmi dan kuota.', '', P.map(p => row(p, 'inp', sale ? sale.in[p.kode] || '' : (pend?.items?.[p.kode] || ''), `<button class="btn sm" data-q="sisa" title="Isi sisa kuota">Sisa</button><button class="btn sm" data-q="+sak">+1 sak</button>`)).join(''))}
-    ${sec(2, 'Rencana diberikan ke petani', 'Yang akan diberikan ke petani. Selisih dengan input menjadi milik kios (boleh lebih / kurang / ditukar). Tidak mengurangi stok resmi.', '<button class="btn sm" id="qRc">= input</button>', P.map(p => row(p, 'rc', sale ? sale.rc[p.kode] || '' : '')).join('') + '<div class="sm" id="jKios" style="margin-top:4px"></div>')}
-    ${sec(3, 'Diambil sekarang', 'Yang dibawa petani saat ini (mengurangi stok gudang). Tidak boleh melebihi rencana.', '<button class="btn sm" id="qAm">= rencana</button>', P.map(p => row(p, 'am', !sale && bi > 0 ? cur.bi[p.kode] || '' : '')).join(''))}` : '<p class="mut">Petani ini belum punya kuota.</p>'}
+    ${sec(2, 'Rencana diberikan ke petani', 'Yang akan diberikan ke petani. Selisih dengan input menjadi milik kios (boleh lebih / kurang / ditukar). Tidak mengurangi stok resmi.', '<button class="btn sm" id="qRc">= input</button>', P.map(p => row(p, 'rc', sale ? sale.rc[p.kode] || '' : (pend?.items?.[p.kode] || ''))).join('') + '<div class="sm" id="jKios" style="margin-top:4px"></div>')}
+    ${sec(3, 'Diambil', 'Boleh lebih dari satu pengambilan dengan tanggal berbeda: sebelum input, saat transaksi, atau sesudahnya. Mengurangi stok gudang; total tidak boleh melebihi rencana.', '<button class="btn sm" id="qAddPk">+ Pengambilan</button>', `<div id="jPks">${picks.map(pkHtml).join('')}</div><div class="sm" id="jAmSum" style="margin-top:4px"></div>`)}` : '<p class="mut">Petani ini belum punya kuota.</p>'}
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:9px"><span class="mut">Total harga (dari input)</span><b style="font-size:17px" id="jTot">Rp 0</b></div>
     <div class="fld"><label>Keterangan</label><input class="in" id="jKet" placeholder="opsional" value="${esc(sale?.keterangan || '')}"></div>
     ${sale ? '' : `<div class="fld"><label>Tanda tangan petani (opsional) <button class="btn sm" id="sigClr" style="margin-left:6px">Hapus</button></label><canvas class="sig" id="sig"></canvas></div>`}`;
   };
   const val = (d, k, f) => Number($(`[data-k=${k}] [data-f=${f}]`, d)?.value) || 0;
+  const readPicks = d => $$('.pkb', d).map(b => ({ tgl: $('[data-f=tgl]', b).value, bf: b.dataset.bf === '1', auto: !!$('[data-f=tgl]', b).dataset.auto, am: Object.fromEntries(KODE.map(k => [k, Number($(`[data-pk=${k}] [data-f=am]`, b)?.value) || 0])) }));
   const wire = () => {
     const d = $('#drawer');
     const sc = $('#jScan', d);
@@ -75,31 +102,34 @@ export function openJual(rec, edit) {
       const f = e.target.files[0]; if (!f) return; const st = $('#jScanSt', d);
       try {
         const r = await scanShot(f, t => st.textContent = t); if (!r.no && !r.nik && !Object.keys(r.items).length) { st.textContent = 'Tidak ada data terbaca. Coba screenshot yang lebih jelas.'; return; }
-        pend = r;
+        pend = r; picks = null;
         if (!cur && r.nik) {
           const c = (S.byNik[r.nik] || []);
           cur = (r.kom && c.find(x => (x.komoditas || '').toLowerCase().includes(r.kom))) || (c.length === 1 ? c[0] : null);
         }
+        if (cur) { initPicks(); if (r.langsung && !picks.length) picks.push({ tgl: r.tgl || dtLocal(), auto: true, am: Object.fromEntries(KODE.map(k => [k, r.items[k] || 0])) }); }
         render();
-        $('#jScanSt', $('#drawer')) && ($('#jScanSt', $('#drawer')).textContent = cur ? 'Terbaca. Periksa lagi sebelum menyimpan.' : 'Petani dengan NIK ' + (r.nik || '?') + ' belum ditemukan / pilih manual.');
+        const s2 = $('#jScanSt', $('#drawer')); if (s2) s2.textContent = cur ? `Terbaca${r.no ? ': ' + r.no : ''}. Periksa lagi sebelum menyimpan.` : 'Petani dengan NIK ' + (r.nik || '?') + ' belum ditemukan / pilih manual.';
       } catch (er) { st.textContent = er.message; }
     };
-    if (!cur) return wirePicker(d, 'jPk', p => { cur = p; render(); });
+    if (!cur) return wirePicker(d, 'jPk', p => { cur = p; picks = null; render(); });
     const calc = () => {
-      let tot = 0; const kios = [];
+      let tot = 0; const kios = [], am = [];
+      const pk = readPicks(d);
       for (const p of prods()) {
-        const k = p.kode, inp = val(d, k, 'inp'), rc = val(d, k, 'rc'), am = val(d, k, 'am'), ak0 = sale ? sale.ak[k] : 0, sisa = sisaK(k);
+        const k = p.kode, inp = val(d, k, 'inp'), rc = val(d, k, 'rc'), sisa = sisaK(k), amT = pk.reduce((a, x) => a + (x.am[k] || 0), 0);
         tot += inp * p.harga_jual;
-        const w1 = inp > sisa ? `<span class="bad">&gt; sisa kuota ${n(sisa)}</span>` : `${n(sak(inp, p.berat_sak))} sak`;
-        $(`[data-k=${k}] [data-i=inp]`, d).innerHTML = w1;
+        $(`[data-k=${k}] [data-i=inp]`, d).innerHTML = inp > sisa ? `<span class="bad">&gt; sisa kuota ${n(sisa)}</span>` : `${n(sak(inp, p.berat_sak))} sak`;
         $(`[data-k=${k}] [data-i=rc]`, d).innerHTML = `${n(sak(rc, p.berat_sak))} sak`;
-        $(`[data-k=${k}] [data-i=am]`, d).innerHTML = ak0 + am > rc ? `<span class="bad">melebihi rencana (${n(rc - ak0)})</span>` : `${n(sak(am, p.berat_sak))} sak`;
         if (inp || rc) kios.push(`${NAMA[k]} ${n(inp - rc)}`);
+        if (rc || amT) am.push(`<span class="${amT > rc ? 'bad' : ''}">${NAMA[k]} ${n(amT)}/${n(rc)}${amT > rc ? ' (melebihi)' : ''}</span>`);
       }
+      $$('.pkb', d).forEach(b => $$('[data-pk]', b).forEach(r => { const q = Number($('[data-f=am]', r).value) || 0; $('[data-i=am]', r).textContent = q ? n(sak(q, berat(r.dataset.pk))) + ' sak' : ''; }));
       $('#jTot', d).textContent = rp(tot); const kk = $('#jKios', d); if (kk) kk.innerHTML = 'Milik kios (input − rencana): <b>' + (kios.join(' · ') || '-') + '</b>';
+      const as = $('#jAmSum', d); if (as) as.innerHTML = 'Total diambil / rencana: ' + (am.join(' · ') || '-');
     };
     const touched = {};
-    $$('.jr', d).forEach(c => {
+    $$('.jr[data-k]', d).forEach(c => {
       const k = c.dataset.k, pr = S.byKode[k], I_ = $('[data-f=inp]', c), R = $(`[data-k=${k}] [data-f=rc]`, d);
       $$('input', c).forEach(inp => inp.oninput = () => { if (inp.dataset.f === 'rc') touched[k] = true; if (inp.dataset.f === 'inp' && !touched[k] && !sale && R) R.value = inp.value; calc(); });
       $$('[data-q]', c).forEach(b => b.onclick = () => {
@@ -109,9 +139,23 @@ export function openJual(rec, edit) {
     });
     if (!sale && pend?.items) $$('.jr [data-f=inp]', d).forEach(i => { const R = $(`[data-k=${i.closest('.jr').dataset.k}] [data-f=rc]`, d); if (R && !R.value) R.value = i.value; });
     const qr = $('#qRc', d); if (qr) qr.onclick = () => { $$('[data-f=rc]', d).forEach(R => { R.value = $(`[data-k=${R.closest('.jr').dataset.k}] [data-f=inp]`, d).value; touched[R.closest('.jr').dataset.k] = true; }); calc(); };
-    const qa = $('#qAm', d); if (qa) qa.onclick = () => { $$('[data-f=am]', d).forEach(A => { const k = A.closest('.jr').dataset.k; A.value = Math.max(0, val(d, k, 'rc') - (sale ? sale.ak[k] : 0)) || ''; }); calc(); };
-    const bi = $('#jBi', d); if (bi) bi.onchange = () => { $$('[data-f=am]', d).forEach(A => A.value = bi.checked ? (cur.bi[A.closest('.jr').dataset.k] || '') : ''); calc(); };
-    calc();
+    const wirePk = () => {
+      $$('.pkb', d).forEach(b => {
+        $$('input', b).forEach(i => i.oninput = () => { if (i.dataset.f === 'tgl') delete i.dataset.auto; calc(); });
+        $('[data-delpk]', b).onclick = () => { picks = readPicks(d).filter((x, i) => i !== Number(b.dataset.pi)); $('#jPks', d).innerHTML = picks.map(pkHtml).join(''); wirePk(); calc(); };
+      });
+    };
+    const qa = $('#qAddPk', d); if (qa) qa.onclick = () => {
+      picks = readPicks(d); const am = {};
+      for (const p of prods()) { const k = p.kode; am[k] = Math.max(0, val(d, k, 'rc') - picks.reduce((a, x) => a + (x.am[k] || 0), 0)); }
+      picks.push({ tgl: $('#jTg', d).value, auto: true, am }); $('#jPks', d).innerHTML = picks.map(pkHtml).join(''); wirePk(); calc();
+    };
+    $('#jTg', d).onchange = () => $$('[data-f=tgl][data-auto]', d).forEach(i => i.value = $('#jTg', d).value);
+    const bi = $('#jBi', d); if (bi) bi.onchange = () => {
+      const manual = readPicks(d).filter(x => !x.bf); picks = bi.checked ? [...bfPicks(), ...manual] : manual;
+      $('#jPks', d).innerHTML = picks.map(pkHtml).join(''); wirePk(); calc();
+    };
+    wirePk(); calc();
     const cv = $('#sig', d); if (!cv) return;
     const r = cv.getBoundingClientRect(), ratio = window.devicePixelRatio || 1;
     cv.width = r.width * ratio; cv.height = r.height * ratio;
@@ -130,12 +174,12 @@ export function openJual(rec, edit) {
     const no = ($('#jNo', d).value || '').trim();
     if (!no) return toast('Isi no. pesanan dari aplikasi pupuk resmi');
     if (!sale && S.sale[no]) return toast('No. pesanan ini sudah ada');
-    const items = [];
+    const items = [], pk = readPicks(d);
     for (const p of prods()) {
-      const k = p.kode, v = { inp: val(d, k, 'inp'), rc: val(d, k, 'rc'), am: val(d, k, 'am') }, ak0 = sale ? sale.ak[k] : 0;
-      if (v.am + ak0 > v.rc) return toast(`${NAMA[k]}: yang diambil melebihi rencana. Perbaiki dulu.`);
+      const k = p.kode, v = { inp: val(d, k, 'inp'), rc: val(d, k, 'rc') }, amT = pk.reduce((a, x) => a + (x.am[k] || 0), 0);
+      if (amT > v.rc + 1e-9) return toast(`${NAMA[k]}: total diambil (${n(amT)}) melebihi rencana (${n(v.rc)}). Perbaiki dulu.`);
       if (v.inp > sisaK(k) && !confirm(`${NAMA[k]}: input ${n(v.inp)} melebihi sisa kuota ${n(sisaK(k))}. Tetap simpan?`)) return;
-      if (v.inp > 0 || v.rc > 0 || v.am > 0) items.push({ id_produk: p.id, ...v });
+      if (v.inp > 0 || v.rc > 0) items.push({ id_produk: p.id, ...v });
     }
     if (!items.length) return toast('Isi jumlah dulu');
     $$('#jSave,#jSavePrint').forEach(b => b.disabled = true);
@@ -144,7 +188,8 @@ export function openJual(rec, edit) {
       const blob = await new Promise(r => cv.toBlob(r, 'image/png')); const path = `${uid()}${uid()}.png`;
       const up = await sb.storage.from('ttd').upload(path, blob, { contentType: 'image/png' }); if (!up.error) ttd = path;
     }
-    const p = { no, tanggal: fromLocal($('#jTg', d).value), id_data: cur.id_data, ttd, ket: $('#jKet', d).value || null, items, hapus_bi: !!($('#jBi', d) && $('#jBi', d).checked) };
+    const picksOut = pk.filter(x => KODE.some(k => x.am[k] > 0)).map(x => ({ tgl: fromLocal(x.tgl), ...x.am }));
+    const p = { no, tanggal: fromLocal($('#jTg', d).value), id_data: cur.id_data, ttd, ket: $('#jKet', d).value || null, items, picks: picksOut, hapus_bi: !!($('#jBi', d) && $('#jBi', d).checked) };
     const { error } = await sb.rpc(sale ? 'ubah_penjualan2' : 'simpan_penjualan2', { p });
     if (error) { toast('Gagal: ' + error.message); $$('#jSave,#jSavePrint').forEach(b => b.disabled = false); return; }
     const m = NO_RE.exec(no); if (m) lsSet('noPref', m[1] + m[2]);
@@ -200,7 +245,7 @@ export function openAmbil(no) {
       onOpen: d => {
         $$('[data-k]', d).forEach(c => { const k = c.dataset.k, A = $('[data-f=am]', c); $$('[data-q]', c).forEach(b => b.onclick = () => { const q = b.dataset.q; if (q === 'sisa') A.value = s.ba[k]; if (q === '+sak') A.value = (Number(A.value) || 0) + berat(k); if (q === 'nol') A.value = ''; }); });
         $('#aS', d).onclick = async () => {
-          const rec = { id_kg: uid() + uid().slice(0, 2), no_pesanan: no, tanggal_waktu: fromLocal($('#aTg', d).value), id_data: s.id_data, nama_petani: s.nama_petani, nik: s.nik, nama_poktan: s.nama_poktan, komoditas: s.komoditas, ...z() };
+          const rec = { id_kg: uid() + uid().slice(0, 2), tahun: s.tahun, no_pesanan: no, tanggal_waktu: fromLocal($('#aTg', d).value), id_data: s.id_data, nama_petani: s.nama_petani, nik: s.nik, nama_poktan: s.nama_poktan, komoditas: s.komoditas, ...z() };
           let any = false; $$('[data-k]', d).forEach(c => { const v = Number($('[data-f=am]', c).value) || 0; rec[c.dataset.k] = v; if (v > 0) any = true; });
           if (!any) return toast('Isi jumlah yang diambil');
           for (const k of KODE) if (rec[k] > s.ba[k] + 1e-9) return toast(`${NAMA[k]}: melebihi yang belum diambil (${n(s.ba[k])} kg)`);
@@ -224,7 +269,7 @@ export function openBelumInput(rec) {
     onOpen: d => {
       wire(d); $('#bS', d).disabled = !cur;
       $('#bS', d).onclick = async () => {
-        const r = { id_blmfoto: uid() + uid().slice(0, 2), tanggal_waktu: fromLocal($('#bTg', d).value), id_data: cur.id_data, nama_petani: cur.nama, nik: cur.nik, nama_poktan: cur.poktan, komoditas: cur.komoditas, keterangan: $('#bKet', d).value || null, ...z() };
+        const r = { id_blmfoto: uid() + uid().slice(0, 2), tahun: cur.tahun, tanggal_waktu: fromLocal($('#bTg', d).value), id_data: cur.id_data, nama_petani: cur.nama, nik: cur.nik, nama_poktan: cur.poktan, komoditas: cur.komoditas, keterangan: $('#bKet', d).value || null, ...z() };
         let any = false; $$('[data-b]', d).forEach(i => { const v = Number(i.value) || 0; r[i.dataset.b] = v; if (v > 0) any = true; });
         if (!any) return toast('Isi jumlah');
         const { error } = await sb.from('blum_foto').insert(r); if (error) return toast('Gagal: ' + error.message);
@@ -234,29 +279,50 @@ export function openBelumInput(rec) {
   });
 }
 
+// ===== ubah DPT & realisasi DPT per poktan =====
+export function openDptForm(nik, poktan) {
+  const rs = (S.byNik[nik] || []).filter(r => (r.poktan || '-') === poktan); if (!rs.length) return;
+  const auto = ['urea', 'phonska', 'organik'].map(k => Math.round(rs.reduce((a, r) => a + (r.ak[k] || 0), 0) / berat(k) * 10) / 10).join(',');
+  openDrawer(`<div class="card" style="padding:9px"><b>${esc(rs[0].nama)}</b><div class="mut sm">${esc(poktan)} · ${rs.map(r => esc(r.komoditas)).join(', ')} · ${S.tahun}</div></div>
+    <div class="fld"><label>DPT (rencana dapat, dalam sak: urea, phonska, organik)</label><input class="in" id="dP" value="${esc(rs.find(r => r.dpt)?.dpt || '')}" placeholder="13,14,3" inputmode="text"></div>
+    <div class="fld"><label>Realisasi DPT (boleh berbeda, mis. urea ditukar phonska)</label><input class="in" id="dR" value="${esc(rs.find(r => r.dpt_realisasi)?.dpt_realisasi || '')}" placeholder="kosong = otomatis dari jumlah diambil (${auto})"></div>
+    <p class="mut sm">Urea dan phonska boleh saling tukar; organik dan ZA tidak. Sisa ditampilkan sebagai "(urea+phonska, organik)". Realisasi dikosongkan = dihitung otomatis dari jumlah yang sudah diambil di semua komoditas poktan ini.</p>`,
+    {
+      title: 'Ubah DPT', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="dS">Simpan</button>', onOpen: d => {
+        $('#dS', d).onclick = async () => {
+          const ok = t => t === '' || /^\s*\d+(\.\d+)?(\s*,\s*\d+(\.\d+)?){0,3}\s*$/.test(t);
+          const a = $('#dP', d).value.trim(), b = $('#dR', d).value.trim(); if (!ok(a) || !ok(b)) return toast('Format angka dipisah koma, mis. 13,14,3');
+          const { error } = await sb.from('petani').update({ dpt: a.replace(/\s/g, '') || null, dpt_realisasi: b.replace(/\s/g, '') || null }).in('id_data', rs.map(r => r.id_data));
+          if (error) return toast('Gagal: ' + error.message); toast('Tersimpan'); closeDrawer(); await done();
+        };
+      },
+    });
+}
+
 // ===== tambah / ubah data petani =====
 export function openPetaniForm(rec, nikPreset, person) {
   const ids = person ? (S.byNik[person] || []).map(x => x.id_data) : [];
   if (person) rec = S.byNik[person][0];
+  const hasTx = person ? (S.penRaw.some(x => ids.includes(x.id_data)) || S.kg.some(x => ids.includes(x.id_data)) || S.bf.some(x => ids.includes(x.id_data))) : false;
   const src = rec || (nikPreset ? { ...(S.byNik[nikPreset]?.[0] || {}), id_data: null, poktan: '', komoditas: '', luas_lahan: '', q: z(), kuota_urea: '', kuota_phonska: '', kuota_organik: '', kuota_za: '', keterangan: '' } : { nama: '', nik: '', alamat: '', tempat_lahir: '', tanggal_lahir: '', komoditas: '', poktan: '', luas_lahan: '', kuota_urea: '', kuota_phonska: '', kuota_organik: '', kuota_za: '', keterangan: '', dpt: '' });
   const poktans = [...new Set(S.petani.map(p => p.poktan).filter(Boolean))].sort(), koms = [...new Set(S.petani.map(p => p.komoditas).filter(Boolean))].sort();
   const f = (id, lab, val, type = 'text', extra = '') => `<div class="fld"><label>${lab}</label><input class="in" id="${id}" type="${type}" value="${esc(val ?? '')}" ${extra}></div>`;
   openDrawer(`${f('pNama', 'Nama petani', src.nama)}${f('pNik', 'NIK', src.nik, 'text', 'inputmode="numeric" maxlength="16"')}${f('pAlamat', 'Alamat', src.alamat)}
     <div class="row2">${f('pTmp', 'Tempat lahir', src.tempat_lahir)}${f('pTgl', 'Tanggal lahir', src.tanggal_lahir, 'date')}</div>
-    ${person ? '<p class="mut sm">Perubahan nama, NIK, alamat, dan TTL berlaku untuk semua data petani ini (semua poktan & komoditas). Ubah kuota/poktan lewat ikon pensil di dalam komoditasnya.</p>' : `    <div class="row2"><div class="fld"><label>Kelompok tani (poktan)</label><input class="in" id="pPok" list="dlPok" value="${esc(src.poktan || '')}"><datalist id="dlPok">${poktans.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+    ${person ? '<p class="mut sm">Perubahan nama, NIK, alamat, dan TTL berlaku untuk semua data petani ini (semua poktan & komoditas). Ubah kuota/poktan lewat ikon pensil di dalam komoditasnya.</p>' + (hasTx ? `<p class="sm warn">Petani ini sudah punya transaksi di tahun ${S.tahun}, jadi tidak bisa dihapus. Cukup ubah (kurangi / tambah) kuotanya.</p>` : isMgr() ? `<p class="sm mut">Tidak ada transaksi di tahun ${S.tahun}: petani ini boleh dihapus dari tahun ${S.tahun}.</p>` : '') : `    <div class="row2"><div class="fld"><label>Kelompok tani (poktan)</label><input class="in" id="pPok" list="dlPok" value="${esc(src.poktan || '')}"><datalist id="dlPok">${poktans.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="fld"><label>Komoditas</label><input class="in" id="pKom" list="dlKom" value="${esc(src.komoditas || '')}"><datalist id="dlKom">${koms.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div></div>
     ${f('pLuas', 'Luas lahan (ha)', src.luas_lahan, 'number', 'step="0.01"')}
     <div class="row2">${KODE.map(k => f('pK_' + k, `Kuota ${NAMA[k]} (kg)`, src['kuota_' + k], 'number')).join('')}</div>
     ${f('pKet', 'Keterangan', src.keterangan)}`}
     ${rec ? '' : '<p class="mut sm">Tips: kalau NIK ini sudah punya data di komoditas/poktan lain, tambahkan sebagai data baru dengan NIK yang sama.</p>'}`,
     {
-      title: person ? 'Ubah data petani' : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isMgr() ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
+      title: person ? 'Ubah data petani' : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isMgr() && !hasTx ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
       onOpen: d => {
         const dl = $('#pDel', d);
         if (dl) dl.onclick = async () => {
           const nm = rec.nama, np = (S.penRaw || []).filter(x => ids.includes(x.id_data)).length;
-          if (!confirm(`Hapus petani "${nm}"?\n\nSemua data petani ini akan terhapus: ${ids.length} data kuota, ${np} penjualan beserta pengambilan dan catatan "belum input". Tindakan ini tidak bisa dibatalkan.\n\nYa = hapus, Batal = jangan hapus`)) return;
-          for (const t of ['keluar_gudang', 'diambil', 'detail', 'penjualan', 'blum_foto', 'petani']) { const { error } = await sb.from(t).delete().in('id_data', ids); if (error) return toast('Gagal hapus ' + t + ': ' + error.message); }
+          if (!confirm(`Hapus petani "${nm}" dari tahun ${S.tahun}?\n\n${ids.length} data kuota akan terhapus. Tidak ada transaksi di tahun ini. Tindakan ini tidak bisa dibatalkan.\n\nYa = hapus, Batal = jangan hapus`)) return;
+          for (const t of ['petani']) { const { error } = await sb.from(t).delete().in('id_data', ids); if (error) return toast('Gagal hapus ' + t + ': ' + error.message); }
           toast('Petani dihapus'); closeDrawer(); await done();
         };
         $('#pS', d).onclick = async () => {
@@ -275,7 +341,7 @@ export function openPetaniForm(rec, nikPreset, person) {
           KODE.forEach(k => row['kuota_' + k] = Number(v('pK_' + k)) || 0);
           let error;
           if (rec) ({ error } = await sb.from('petani').update(row).eq('id_data', rec.id_data));
-          else { const id = Math.max(0, ...S.petani.map(p => p.id_data)) + 1; ({ error } = await sb.from('petani').insert({ id_data: id, ...row })); }
+          else { const id = ++S.maxId; ({ error } = await sb.from('petani').insert({ id_data: id, tahun: S.tahun, ...row })); }
           if (error) return toast('Gagal: ' + error.message);
           toast('Tersimpan'); closeDrawer(); await done();
         };

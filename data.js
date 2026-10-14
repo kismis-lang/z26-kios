@@ -5,7 +5,7 @@ export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
-export const S = { user: null, prof: null, produk: [], set: {}, petani: [], pen: [], stok: [], loaded: false };
+export const S = { tahun: Number((() => { try { return localStorage.getItem('tahun') } catch { return null } })()) || new Date().getFullYear(), tahunList: [], user: null, prof: null, produk: [], set: {}, petani: [], pen: [], stok: [], loaded: false };
 
 export const isMgr = () => S.prof && S.prof.status === 'approved' && (S.prof.role === 'admin' || S.prof.role === 'owner');
 export const isAdmin = () => S.prof && S.prof.status === 'approved' && S.prof.role === 'admin';
@@ -35,18 +35,24 @@ export async function loadProfile() {
   S.prof = data;
 }
 
+const yr = () => q => q.eq('tahun', S.tahun);
+export async function loadTahun() {
+  const r = await all('petani', 'tahun', 'tahun,id_data');
+  S.tahunList = [...new Set([...r.map(x => x.tahun), S.tahun])].sort((a, b) => b - a);
+}
 export async function loadAll() {
+  await loadTahun();
   const [produk, set, petani, pen, det, amb, kg, bf, stok, dlk, dlm, lk, lkm] = await Promise.all([
     all('produk', '*', 'id'), all('pengaturan', '*', 'kunci'),
-    all('petani', '*', 'id_data'),
-    all('penjualan', '*', 'no_pesanan'),
-    all('detail', 'id_detail,no_pesanan,id_produk,id_data,jumlah,harga_satuan,subtotal', 'id_detail'),
-    all('diambil', 'id_diambil,no_pesanan,id_produk,id_data,jumlah', 'id_diambil'),
-    all('keluar_gudang', 'id_kg,no_pesanan,tanggal_waktu,id_data,urea,phonska,organik,za', 'id_kg'),
-    all('blum_foto', '*', 'id_blmfoto'),
-    all('stok', '*', 'id_stok'),
-    all('detail_lk', '*', 'id_dlk'), all('dlk_masuk', '*', 'id_dlkm'),
-    all('luar_kelompok', '*', 'id_lk'), all('lk_masuk', '*', 'id_lkm'),
+    all('petani', '*', 'id_data', yr()),
+    all('penjualan', '*', 'no_pesanan', yr()),
+    all('detail', 'id_detail,no_pesanan,id_produk,id_data,jumlah,harga_satuan,subtotal', 'id_detail', yr()),
+    all('diambil', 'id_diambil,no_pesanan,id_produk,id_data,jumlah', 'id_diambil', yr()),
+    all('keluar_gudang', 'id_kg,no_pesanan,tanggal_waktu,id_data,urea,phonska,organik,za', 'id_kg', yr()),
+    all('blum_foto', '*', 'id_blmfoto', yr()),
+    all('stok', '*', 'id_stok', yr()),
+    all('detail_lk', '*', 'id_dlk', yr()), all('dlk_masuk', '*', 'id_dlkm', yr()),
+    all('luar_kelompok', '*', 'id_lk', yr()), all('lk_masuk', '*', 'id_lkm', yr()),
   ]);
   Object.assign(S, { produk, petaniRaw: petani, penRaw: pen, det, amb, kg, bf, stok, dlk, dlm, lk, lkm });
   S.set = Object.fromEntries(set.map(r => [r.kunci, r.nilai]));
@@ -58,11 +64,11 @@ export async function loadAll() {
 // muat ulang tabel transaksi saja (setelah simpan/ubah)
 export async function reloadTx() {
   const [petani, pen, det, amb, kg, bf] = await Promise.all([
-    all('petani', '*', 'id_data'), all('penjualan', '*', 'no_pesanan'),
-    all('detail', 'id_detail,no_pesanan,id_produk,id_data,jumlah,harga_satuan,subtotal', 'id_detail'),
-    all('diambil', 'id_diambil,no_pesanan,id_produk,id_data,jumlah', 'id_diambil'),
-    all('keluar_gudang', 'id_kg,no_pesanan,tanggal_waktu,id_data,urea,phonska,organik,za', 'id_kg'),
-    all('blum_foto', '*', 'id_blmfoto'),
+    all('petani', '*', 'id_data', yr()), all('penjualan', '*', 'no_pesanan', yr()),
+    all('detail', 'id_detail,no_pesanan,id_produk,id_data,jumlah,harga_satuan,subtotal', 'id_detail', yr()),
+    all('diambil', 'id_diambil,no_pesanan,id_produk,id_data,jumlah', 'id_diambil', yr()),
+    all('keluar_gudang', 'id_kg,no_pesanan,tanggal_waktu,id_data,urea,phonska,organik,za', 'id_kg', yr()),
+    all('blum_foto', '*', 'id_blmfoto', yr()),
   ]);
   Object.assign(S, { petaniRaw: petani, penRaw: pen, det, amb, kg, bf }); compute();
 }

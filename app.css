@@ -219,3 +219,17 @@ table.dn{font-size:11.5px} table.dn td,table.dn th{padding:4px 6px}
 .js .jr .jn{font-size:12px;font-weight:600}.js .jr .in{padding:6px 8px}
 .js .jr .jk{grid-column:2/-1;margin-top:-2px}
 .js .jr[data-k] .jk:last-child{min-height:0}
+/* v5 */
+.yrsel{width:auto;flex:none;padding:8px 6px;font-weight:600}
+.kk{color:var(--a);font-weight:600;margin:0 2px}
+.slh{flex-wrap:nowrap}.slh>b,.slh>.mut{white-space:nowrap}
+.slh .btn.xs,.slh2 .btn.xs,.prh .btn.xs{width:22px;height:22px;border-radius:7px;flex:none}
+.slh .btn.xs svg,.slh2 .btn.xs svg,.prh .btn.xs svg{width:12px;height:12px}
+.slh2{display:flex;align-items:center;gap:6px;padding:4px 2px;font-size:11px}.slh2 .sp{flex:1}
+.prh{flex-wrap:nowrap;cursor:default}.prh:hover{background:none}.prh .btn{margin-left:auto}
+.prh b{white-space:nowrap}
+.pkb{border:1px dashed var(--line);border-radius:10px;padding:6px;margin:5px 0}
+.pkh{display:flex;gap:6px;align-items:center;margin-bottom:3px}.pkh .in{flex:1;padding:5px 8px}
+.pkb .jr{grid-template-columns:78px 1fr}
+.btn.xs.bad{color:var(--bad)}
+select.yrsel{width:76px!important;flex:none}.top .search{min-width:0}
