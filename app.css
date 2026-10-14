@@ -188,3 +188,25 @@ table.dn{font-size:11.5px} table.dn td,table.dn th{padding:4px 6px}
 .gh .grow{min-width:0;flex:1}
 .kpi{min-width:0;overflow:hidden}
 @media(max-width:820px){.mbs{width:30%}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* petani v3 */
+.btn.xs{width:26px;height:26px;padding:0;border-radius:9px;flex:none}.btn.xs svg{width:13px;height:13px}
+.sub1{font-size:10px;color:var(--mut);line-height:1.35}
+.gd{padding:2px 0 6px 10px;font-size:11px}
+.prh,.krh,.slh{display:flex;align-items:center;gap:6px;padding:4px 2px;cursor:pointer;flex-wrap:wrap}
+.prh:hover,.krh:hover,.slh:hover{background:var(--a-soft);border-radius:7px}
+.pr>.pb{padding-left:12px}.kr>.kb{padding:2px 0 6px 14px}
+.pr.open>.prh .chev,.kr.open>.krh .chev{transform:rotate(90deg)}
+.chev{display:inline-block;transition:transform .15s;color:var(--mut)}
+.pk{grid-template-columns:58px 1fr}
+.pbar .ph{display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:2px}
+.pg.s{height:7px}
+.ket{font-size:10.5px;margin:4px 0}.sub{margin-top:6px;font-size:11px}
+.sl{border-top:1px dashed var(--line)}
+.slh .sp{flex:1}
+.sd{padding:2px 0 6px 12px;font-size:10.5px}
+.sdr{display:flex;justify-content:space-between;gap:8px;padding:1px 0}
+.sdr.tot{border-top:1px solid var(--line);margin-top:2px;cursor:pointer}
+.sdx{padding:4px 0 2px;display:grid;gap:2px}
+.sum{margin-top:6px;padding:6px 8px;border-radius:9px;background:var(--card);font-size:10.5px;display:grid;gap:2px}
+.gh .sub1{white-space:normal;overflow:visible}
+.pk .pg.s i{--c:var(--ok)}

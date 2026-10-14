@@ -180,25 +180,42 @@ export function openBelumInput(rec) {
 }
 
 // ===== tambah / ubah data petani =====
-export function openPetaniForm(rec, nikPreset) {
+export function openPetaniForm(rec, nikPreset, person) {
+  const ids = person ? (S.byNik[person] || []).map(x => x.id_data) : [];
+  if (person) rec = S.byNik[person][0];
   const src = rec || (nikPreset ? { ...(S.byNik[nikPreset]?.[0] || {}), id_data: null, poktan: '', komoditas: '', luas_lahan: '', q: z(), kuota_urea: '', kuota_phonska: '', kuota_organik: '', kuota_za: '', keterangan: '' } : { nama: '', nik: '', alamat: '', tempat_lahir: '', tanggal_lahir: '', komoditas: '', poktan: '', luas_lahan: '', kuota_urea: '', kuota_phonska: '', kuota_organik: '', kuota_za: '', keterangan: '', dpt: '' });
   const poktans = [...new Set(S.petani.map(p => p.poktan).filter(Boolean))].sort(), koms = [...new Set(S.petani.map(p => p.komoditas).filter(Boolean))].sort();
   const f = (id, lab, val, type = 'text', extra = '') => `<div class="fld"><label>${lab}</label><input class="in" id="${id}" type="${type}" value="${esc(val ?? '')}" ${extra}></div>`;
   openDrawer(`${f('pNama', 'Nama petani', src.nama)}${f('pNik', 'NIK', src.nik, 'text', 'inputmode="numeric" maxlength="16"')}${f('pAlamat', 'Alamat', src.alamat)}
     <div class="row2">${f('pTmp', 'Tempat lahir', src.tempat_lahir)}${f('pTgl', 'Tanggal lahir', src.tanggal_lahir, 'date')}</div>
-    <div class="row2"><div class="fld"><label>Kelompok tani (poktan)</label><input class="in" id="pPok" list="dlPok" value="${esc(src.poktan || '')}"><datalist id="dlPok">${poktans.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
+    ${person ? '<p class="mut sm">Perubahan nama, NIK, alamat, dan TTL berlaku untuk semua data petani ini (semua poktan & komoditas). Ubah kuota/poktan lewat ikon pensil di dalam komoditasnya.</p>' : `    <div class="row2"><div class="fld"><label>Kelompok tani (poktan)</label><input class="in" id="pPok" list="dlPok" value="${esc(src.poktan || '')}"><datalist id="dlPok">${poktans.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div>
       <div class="fld"><label>Komoditas</label><input class="in" id="pKom" list="dlKom" value="${esc(src.komoditas || '')}"><datalist id="dlKom">${koms.map(x => `<option value="${esc(x)}">`).join('')}</datalist></div></div>
     ${f('pLuas', 'Luas lahan (ha)', src.luas_lahan, 'number', 'step="0.01"')}
     <div class="row2">${KODE.map(k => f('pK_' + k, `Kuota ${NAMA[k]} (kg)`, src['kuota_' + k], 'number')).join('')}</div>
-    ${f('pKet', 'Keterangan', src.keterangan)}
+    ${f('pKet', 'Keterangan', src.keterangan)}`}
     ${rec ? '' : '<p class="mut sm">Tips: kalau NIK ini sudah punya data di komoditas/poktan lain, tambahkan sebagai data baru dengan NIK yang sama.</p>'}`,
     {
-      title: rec ? 'Ubah data petani' : 'Tambah petani', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
+      title: person ? 'Ubah data petani' : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isMgr() ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
       onOpen: d => {
+        const dl = $('#pDel', d);
+        if (dl) dl.onclick = async () => {
+          const nm = rec.nama, np = (S.penRaw || []).filter(x => ids.includes(x.id_data)).length;
+          if (!confirm(`Hapus petani "${nm}"?\n\nSemua data petani ini akan terhapus: ${ids.length} data kuota, ${np} penjualan beserta pengambilan dan catatan "belum input". Tindakan ini tidak bisa dibatalkan.\n\nYa = hapus, Batal = jangan hapus`)) return;
+          for (const t of ['keluar_gudang', 'diambil', 'detail', 'penjualan', 'blum_foto', 'petani']) { const { error } = await sb.from(t).delete().in('id_data', ids); if (error) return toast('Gagal hapus ' + t + ': ' + error.message); }
+          toast('Petani dihapus'); closeDrawer(); await done();
+        };
         $('#pS', d).onclick = async () => {
           const v = id => $('#' + id, d).value.trim();
           if (!v('pNama')) return toast('Isi nama');
           if (v('pNik') && !/^\d{16}$/.test(v('pNik')) && !confirm('NIK bukan 16 digit. Tetap simpan?')) return;
+          if (person) {
+            const id = { nama: v('pNama'), nik: v('pNik') || null, alamat: v('pAlamat') || null, tempat_lahir: v('pTmp') || null, tanggal_lahir: v('pTgl') || null };
+            let { error } = await sb.from('petani').update(id).in('id_data', ids); if (error) return toast('Gagal: ' + error.message);
+            const pj = { nama_petani: id.nama, nik: id.nik };
+            for (const t of ['penjualan']) await sb.from(t).update(pj).in('id_data', ids);
+            for (const t of ['detail', 'diambil', 'keluar_gudang', 'blum_foto']) await sb.from(t).update({ nama_petani: id.nama, nik: id.nik }).in('id_data', ids);
+            toast('Tersimpan'); closeDrawer(); await done(); return;
+          }
           const row = { nama: v('pNama'), nik: v('pNik') || null, alamat: v('pAlamat') || null, tempat_lahir: v('pTmp') || null, tanggal_lahir: v('pTgl') || null, poktan: v('pPok') || null, komoditas: v('pKom') || null, luas_lahan: v('pLuas') === '' ? null : Number(v('pLuas')), keterangan: v('pKet') || null };
           KODE.forEach(k => row['kuota_' + k] = Number(v('pK_' + k)) || 0);
           let error;
