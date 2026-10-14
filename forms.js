@@ -62,6 +62,17 @@ export async function scanShot(file, onStatus) {
   } finally { await w.terminate(); }
 }
 
+// tombol panah naik/turun: +/- 1 sak (berat sak produk)
+const STP = '<span class="stp"><button type="button" class="btn" data-st="1" tabindex="-1" aria-label="Tambah 1 sak">▲</button><button type="button" class="btn" data-st="-1" tabindex="-1" aria-label="Kurangi 1 sak">▼</button></span>';
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-st]'); if (!b) return;
+  const w = b.closest('.nst'), i = w && $('input', w); if (!i) return;
+  const k = b.closest('[data-k],[data-pk]'); const kode = k?.dataset.k || k?.dataset.pk;
+  const step = Number(S.byKode[kode]?.berat_sak) || 50;
+  i.value = Math.max(0, (Number(i.value) || 0) + step * Number(b.dataset.st)) || '';
+  i.dispatchEvent(new Event('input', { bubbles: true }));
+});
+
 // ===== tambah / ubah penjualan =====
 export function openJual(rec, edit) {
   let cur = rec || null, pend = null, picks = null;
@@ -76,19 +87,19 @@ export function openJual(rec, edit) {
     else picks = sum(cur.bi) > 0 ? bfPicks() : [];
   };
   const pkHtml = (pk, i) => `<div class="pkb" data-pi="${i}"${pk.bf ? ' data-bf="1"' : ''}><div class="pkh"><input class="in" type="datetime-local" data-f="tgl" value="${pk.tgl}"${pk.auto ? ' data-auto="1"' : ''}>${pk.bf ? '<span class="tag bad">sebelum input</span>' : ''}<button class="btn xs bad" data-delpk title="Hapus pengambilan ini">${I.trash}</button></div>
-    ${prods().map(p => `<div class="jr c-${p.kode}" data-pk="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><input class="in" type="number" inputmode="decimal" min="0" data-f="am" value="${pk.am[p.kode] || ''}"><span class="jk mut sm" data-i="am"></span></div>`).join('')}</div>`;
+    ${prods().map(p => `<div class="jr c-${p.kode}" data-pk="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="am" value="${pk.am[p.kode] || ''}">${STP}</span><span class="jk mut sm" data-i="am"></span></div>`).join('')}</div>`;
   const body = () => {
     if (!cur) return `${sale ? '' : scanBar}<div class="fld"><label>Petani</label>${pickerHtml('jPk')}</div><p class="mut sm">Pilih petani dulu (atau scan screenshot). Satu NIK bisa punya beberapa data (komoditas / poktan); pilih yang sesuai.</p>`;
     initPicks();
     const bi = sum(cur.bi), P = prods();
-    const row = (p, f, val, extra = '') => `<div class="jr c-${p.kode}" data-k="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><input class="in" type="number" inputmode="decimal" min="0" data-f="${f}" value="${val}">${extra}<span class="jk mut sm" data-i="${f}"></span></div>`;
+    const row = (p, f, val, extra = '') => `<div class="jr c-${p.kode}" data-k="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="${f}" value="${val}">${STP}</span>${extra}<span class="jk mut sm" data-i="${f}"></span></div>`;
     const sec = (no, jud, sub, btn, rows) => `<div class="card js" style="margin-bottom:8px;padding:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b>${no}. ${jud}</b>${btn}</div><div class="mut sm" style="margin-bottom:3px">${sub}</div>${rows}</div>`;
     return `${ringkasPetani(cur)}${sale ? '' : scanBar}
     <div class="row2"><div class="fld"><label>No. pesanan (otomatis, boleh diubah)</label><input class="in b" id="jNo" placeholder="mis. S0CFJ1\\7002OW" value="${esc(sale?.no_pesanan || pend?.no || nextNo())}" ${sale ? 'readonly' : ''} autocomplete="off"></div>
     <div class="fld"><label>Tanggal & jam transaksi</label><input class="in" id="jTg" type="datetime-local" value="${pend?.tgl || dtLocal(sale?.tanggal_waktu || new Date())}"></div></div>
-    ${!sale && bi > 0 ? `<label class="card" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:9px"><input type="checkbox" id="jBi" ${picks.some(x => x.bf) ? 'checked' : ''}><span><b>Sudah mengambil sebelum diinput</b><br><span class="sm">${KODE.filter(k => cur.bi[k] > 0).map(k => `${NAMA[k]} ${n(cur.bi[k])} kg`).join(' · ')} — dimasukkan sebagai pengambilan (sesuai tanggal catatannya), lalu dihapus dari daftar Belum input.</span></span></label>` : ''}
-    ${P.length ? `${sec(1, 'Input (aplikasi resmi)', 'Jumlah yang diinput di aplikasi pupuk resmi. Mengurangi stok resmi dan kuota.', '', P.map(p => row(p, 'inp', sale ? sale.in[p.kode] || '' : (pend?.items?.[p.kode] || ''), `<button class="btn sm" data-q="sisa" title="Isi sisa kuota">Sisa</button><button class="btn sm" data-q="+sak">+1 sak</button>`)).join(''))}
-    ${sec(2, 'Rencana diberikan ke petani', 'Yang akan diberikan ke petani. Selisih dengan input menjadi milik kios (boleh lebih / kurang / ditukar). Tidak mengurangi stok resmi.', '<button class="btn sm" id="qRc">= input</button>', P.map(p => row(p, 'rc', sale ? sale.rc[p.kode] || '' : (pend?.items?.[p.kode] || ''))).join('') + '<div class="sm" id="jKios" style="margin-top:4px"></div>')}
+    ${!sale && bi > 0 ? `<label class="card" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:9px"><input type="checkbox" id="jBi" ${picks.some(x => x.bf) ? 'checked' : ''}><span><b>Sudah mengambil sebelum diinput</b><br><span class="sm">${KODE.filter(k => cur.bi[k] > 0).map(k => `${NAMA[k]} ${n(cur.bi[k])} kg`).join(' · ')} — dimasukkan sebagai pengambilan (sesuai tanggal catatannya). Kalau jumlahnya dikurangi, sisanya tetap tercatat sebagai Belum input.</span></span></label>` : ''}
+    ${P.length ? `${sec(1, 'Input (aplikasi resmi)', 'Jumlah yang diinput di aplikasi pupuk resmi. Mengurangi stok resmi dan kuota.', '', P.map(p => row(p, 'inp', sale ? sale.in[p.kode] || '' : (pend?.items?.[p.kode] || ''), `<button class="btn sm" data-q="sisa" title="Isi sisa kuota">Sisa</button>`)).join(''))}
+    ${sec(2, 'Rencana diberikan ke petani', 'Yang akan diberikan ke petani. Selisih dengan input menjadi milik kios (boleh lebih / kurang / ditukar). Tidak mengurangi stok resmi.', '<button class="btn sm" id="qRc">= input</button>', P.map(p => row(p, 'rc', sale ? sale.rc[p.kode] || '' : '')).join('') + '<div class="sm" id="jKios" style="margin-top:4px"></div>')}
     ${sec(3, 'Diambil', 'Boleh lebih dari satu pengambilan dengan tanggal berbeda: sebelum input, saat transaksi, atau sesudahnya. Mengurangi stok gudang; total tidak boleh melebihi rencana.', '<button class="btn sm" id="qAddPk">+ Pengambilan</button>', `<div id="jPks">${picks.map(pkHtml).join('')}</div><div class="sm" id="jAmSum" style="margin-top:4px"></div>`)}` : '<p class="mut">Petani ini belum punya kuota.</p>'}
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:9px"><span class="mut">Total harga (dari input)</span><b style="font-size:17px" id="jTot">Rp 0</b></div>
     <div class="fld"><label>Keterangan</label><input class="in" id="jKet" placeholder="opsional" value="${esc(sale?.keterangan || '')}"></div>
@@ -132,13 +143,9 @@ export function openJual(rec, edit) {
     const touched = {};
     $$('.jr[data-k]', d).forEach(c => {
       const k = c.dataset.k, pr = S.byKode[k], I_ = $('[data-f=inp]', c), R = $(`[data-k=${k}] [data-f=rc]`, d);
-      $$('input', c).forEach(inp => inp.oninput = () => { if (inp.dataset.f === 'rc') touched[k] = true; if (inp.dataset.f === 'inp' && !touched[k] && !sale && R) R.value = inp.value; calc(); });
-      $$('[data-q]', c).forEach(b => b.onclick = () => {
-        if (b.dataset.q === 'sisa') I_.value = Math.max(0, sisaK(k)); else I_.value = (Number(I_.value) || 0) + Number(pr.berat_sak);
-        if (!touched[k] && !sale && R) R.value = I_.value; calc();
-      });
+      $$('input', c).forEach(inp => inp.oninput = () => { if (inp.dataset.f === 'rc') touched[k] = true; calc(); });
+      $$('[data-q]', c).forEach(b => b.onclick = () => { if (b.dataset.q === 'sisa') I_.value = Math.max(0, sisaK(k)); calc(); });
     });
-    if (!sale && pend?.items) $$('.jr [data-f=inp]', d).forEach(i => { const R = $(`[data-k=${i.closest('.jr').dataset.k}] [data-f=rc]`, d); if (R && !R.value) R.value = i.value; });
     const qr = $('#qRc', d); if (qr) qr.onclick = () => { $$('[data-f=rc]', d).forEach(R => { R.value = $(`[data-k=${R.closest('.jr').dataset.k}] [data-f=inp]`, d).value; touched[R.closest('.jr').dataset.k] = true; }); calc(); };
     const wirePk = () => {
       $$('.pkb', d).forEach(b => {
@@ -191,8 +198,20 @@ export function openJual(rec, edit) {
     }
     const picksOut = pk.filter(x => KODE.some(k => x.am[k] > 0)).map(x => ({ tgl: fromLocal(x.tgl), ...x.am }));
     const p = { no, tanggal: fromLocal($('#jTg', d).value), id_data: cur.id_data, ttd, ket: $('#jKet', d).value || null, items, picks: picksOut, hapus_bi: !!($('#jBi', d) && $('#jBi', d).checked) };
+    // "belum input" yang tidak terpakai semua: sisanya tetap jadi belum input (dicatat ulang setelah simpan)
+    let sisaBi = null;
+    if (p.hapus_bi) {
+      const pakai = z(); pk.filter(x => x.bf).forEach(x => KODE.forEach(k => pakai[k] += x.am[k] || 0));
+      const s0 = z(); let ada = false; KODE.forEach(k => { s0[k] = Math.max(0, (cur.bi[k] || 0) - pakai[k]); if (s0[k] > 0) ada = true; });
+      if (ada) sisaBi = s0;
+    }
     const { error } = await sb.rpc(sale ? 'ubah_penjualan2' : 'simpan_penjualan2', { p });
     if (error) { toast('Gagal: ' + error.message); $$('#jSave,#jSavePrint').forEach(b => b.disabled = false); return; }
+    if (sisaBi) {
+      const last = S.bf.filter(x => x.id_data === cur.id_data).map(x => x.tanggal_waktu).sort().pop() || new Date().toISOString();
+      const r = { id_blmfoto: uid() + uid().slice(0, 2), tahun: cur.tahun, tanggal_waktu: last, id_data: cur.id_data, nama_petani: cur.nama, nik: cur.nik, nama_poktan: cur.poktan, komoditas: cur.komoditas, keterangan: 'sisa belum input dari ' + no, ...sisaBi };
+      const e2 = (await sb.from('blum_foto').insert(r)).error; if (e2) toast('Sisa belum input gagal dicatat: ' + e2.message);
+    }
     const m = NO_RE.exec(no); if (m) lsSet('noPref', m[1] + m[2]);
     toast('Tersimpan'); closeDrawer(); await done(); if (cetak) cetakNota(no);
   };

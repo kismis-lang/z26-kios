@@ -323,3 +323,10 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 .dokb{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
 .btn.xs2{padding:3px 7px;font-size:10px;border-radius:8px;gap:3px;cursor:pointer}.btn.xs2 svg{width:11px;height:11px}
 .btn.mutb{opacity:.75}
+
+/* v11 panah +/- 1 sak */
+.nst{display:flex;align-items:stretch;min-width:0;gap:3px}.nst .in{flex:1;min-width:0}
+.stp{display:flex;flex-direction:column;gap:2px;flex:none}
+.stp .btn{padding:0;width:26px;height:auto;flex:1;min-height:15px;font-size:9px;line-height:1;border-radius:6px;justify-content:center}
+.js .jr{grid-template-columns:78px minmax(0,1fr) auto}
+.pkb .jr{grid-template-columns:78px minmax(0,1fr)}
