@@ -100,7 +100,7 @@ export function compute() {
     const p = P[s.id_data]; if (p) { p.n++; for (const k of KODE) p.ba[k] += s.ba[k]; if (!p.last || s.tanggal_waktu > p.last) p.last = s.tanggal_waktu; }
     s.picks.sort((a, b) => String(a.tanggal_waktu).localeCompare(String(b.tanggal_waktu)));
   }
-  for (const p of Object.values(P)) for (const k of KODE) { p.sisa[k] = p.q[k] - p.in[k]; p.kios[k] = Math.max(0, p.in[k] - p.rc[k]); }
+  for (const p of Object.values(P)) for (const k of KODE) { p.sisa[k] = p.q[k] - p.in[k]; p.kios[k] = p.in[k] - p.rc[k]; }
   S.pid = P; S.sale = SL;
   S.petani = Object.values(P);
   S.pen = Object.values(SL).sort((a, b) => String(b.tanggal_waktu).localeCompare(String(a.tanggal_waktu)));

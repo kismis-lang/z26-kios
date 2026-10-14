@@ -210,3 +210,12 @@ table.dn{font-size:11.5px} table.dn td,table.dn th{padding:4px 6px}
 .sum{margin-top:6px;padding:6px 8px;border-radius:9px;background:var(--card);font-size:10.5px;display:grid;gap:2px}
 .gh .sub1{white-space:normal;overflow:visible}
 .pk .pg.s i{--c:var(--ok)}
+/* v4 */
+.chev.dn{transform:rotate(90deg)}
+.sdt{font-weight:600;font-size:10.5px;margin:3px 0 1px}
+.pick{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:2px 0}
+.sdx .sdx{padding-left:8px;border-left:2px solid var(--line)}
+.js .jr{display:grid;grid-template-columns:78px 1fr auto auto;gap:5px;align-items:center;margin:3px 0}
+.js .jr .jn{font-size:12px;font-weight:600}.js .jr .in{padding:6px 8px}
+.js .jr .jk{grid-column:2/-1;margin-top:-2px}
+.js .jr[data-k] .jk:last-child{min-height:0}
