@@ -1,5 +1,5 @@
 import { $, $$, esc, n, rp, KODE, NAMA, tglJam, jam, ini, uid, toast, I, sak, kgsak, dtLocal, fromLocal, lsGet, lsSet } from './util.js';
-import { sb, S, reloadTx, isMgr, sum, z } from './data.js';
+import { sb, S, reloadTx, isMgr, isAdmin, sum, z } from './data.js';
 import { hooks, openDrawer, closeDrawer, pickerHtml, wirePicker, ringkasPetani, berat } from './ui.js';
 import { berkasHtml, wireBerkas, ttdUrl } from './berkas.js';
 
@@ -75,6 +75,7 @@ document.addEventListener('click', e => {
 
 // ===== tambah / ubah penjualan =====
 export function openJual(rec, edit) {
+  if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   let cur = rec || null, pend = null, picks = null;
   const sale = edit || null;
   const prods = () => KODE.map(k => S.byKode[k]).filter(k => k && cur && (cur.q[k.kode] > 0 || cur.in[k.kode] > 0 || (sale && (sale.in[k.kode] || sale.rc[k.kode]))));
@@ -235,15 +236,11 @@ export function openSale(no) {
     <div class="sec"><h3>Riwayat pengambilan</h3></div><div class="card list" style="padding:6px">${s.picks.length ? s.picks.map(r => `<div class="li" style="cursor:default"><div class="grow"><div class="sm b">${tglJam(r.tanggal_waktu)}</div><div class="sm mut">${KODE.filter(k => r[k] > 0).map(k => `${NAMA[k]} ${n(r[k])} kg`).join(' · ')}</div></div>${isMgr() ? `<button class="btn sm bad" data-delpick="${esc(r.id_kg)}">${I.trash}</button>` : ''}</div>`).join('') : '<span class="mut sm">Belum ada pengambilan</span>'}</div>
     ${s.keterangan ? `<div class="card" style="margin-top:9px;padding:9px">${esc(s.keterangan)}</div>` : ''}`,
     {
-      title: 'Detail penjualan', footer: `${isMgr() ? '<button class="btn bad" id="dDel">Hapus</button>' : ''}<button class="btn" id="dEdit">${I.edit} Ubah</button><button class="btn" id="dPrint">${I.print} Nota</button><button class="btn pri" id="dAmbil">${I.truck} Catat ambil</button>`,
+      title: 'Detail penjualan', footer: `${isAdmin() ? '<button class="btn bad" id="dDel">Hapus</button>' : ''}<button class="btn" id="dEdit">${I.edit} Ubah</button><button class="btn" id="dPrint">${I.print} Nota</button><button class="btn pri" id="dAmbil">${I.truck} Catat ambil</button>`,
       onOpen: d => {
         $('#cpNo', d).onclick = () => { navigator.clipboard?.writeText(s.no_pesanan); toast('No. pesanan disalin'); };
         $('#dPrint', d).onclick = () => cetakNota(no); $('#dEdit', d).onclick = () => openJual(S.pid[s.id_data], s); $('#dAmbil', d).onclick = () => openAmbil(no);
-        const del = $('#dDel', d); if (del) del.onclick = async () => {
-          if (!confirm('Hapus penjualan ini beserta rencana dan catatan pengambilan? Tidak bisa dibatalkan.')) return;
-          for (const t of ['keluar_gudang', 'diambil', 'detail', 'penjualan']) { const { error } = await sb.from(t).delete().eq('no_pesanan', no); if (error) return toast(error.message); }
-          toast('Dihapus'); closeDrawer(); await done();
-        };
+        const del = $('#dDel', d); if (del) del.onclick = async () => { if (await hapusSale(no)) closeDrawer(); };
         $$('[data-delpick]', d).forEach(b => b.onclick = async () => {
           if (!confirm('Hapus catatan pengambilan ini?')) return;
           const { error } = await sb.from('keluar_gudang').delete().eq('id_kg', b.dataset.delpick); if (error) return toast(error.message);
@@ -254,7 +251,15 @@ export function openSale(no) {
 }
 
 // ===== catat pengambilan (bisa berkali-kali, beda tanggal/jam) =====
+export async function hapusSale(no) {
+  const s = S.sale[no]; if (!s || !isAdmin()) return false;
+  const brg = KODE.filter(k => s.in[k]).map(k => `${NAMA[k]} ${n(s.in[k])} kg`).join(', ');
+  if (!confirm(`Hapus penjualan ${no}?\n${s.nama_petani} · ${tglJam(s.tanggal_waktu)}\n${brg} · ${rp(s.total_harga)}\n\nRencana dan catatan pengambilannya ikut terhapus. Tidak bisa dibatalkan.`)) return false;
+  for (const t of ['keluar_gudang', 'diambil', 'detail', 'penjualan']) { const { error } = await sb.from(t).delete().eq('no_pesanan', no); if (error) { toast(error.message); return false; } }
+  toast('Penjualan dihapus'); await done(); return true;
+}
 export function openAmbil(no) {
+  if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   const s = S.sale[no]; if (!s) return; const p = S.pid[s.id_data];
   openDrawer(`<div class="card" style="padding:9px"><div class="b">${esc(s.nama_petani)} <span class="mut sm">· ${esc(s.komoditas)}</span></div><div class="mut sm">No. pesanan ${esc(s.no_pesanan)}</div></div>
     <div class="fld"><label>Tanggal & jam pengambilan</label><input class="in" id="aTg" type="datetime-local" value="${dtLocal()}"></div>
@@ -278,6 +283,7 @@ export function openAmbil(no) {
 
 // ===== ambil sebelum diinput (Blum Foto) =====
 export function openBelumInput(rec) {
+  if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   let cur = rec || null;
   const body = () => !cur ? `<div class="fld"><label>Petani</label>${pickerHtml('bPk')}</div>` : `${ringkasPetani(cur)}
     <div class="fld"><label>Tanggal & jam</label><input class="in" id="bTg" type="datetime-local" value="${dtLocal()}"></div>
@@ -301,6 +307,7 @@ export function openBelumInput(rec) {
 
 // ===== ubah DPT & realisasi DPT per poktan =====
 export function openDptForm(nik, poktan) {
+  if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   const rs = (S.byNik[nik] || []).filter(r => (r.poktan || '-') === poktan); if (!rs.length) return;
   const auto = ['urea', 'phonska', 'organik'].map(k => Math.round(rs.reduce((a, r) => a + (r.ak[k] || 0), 0) / berat(k) * 10) / 10).join(',');
   openDrawer(`<div class="card" style="padding:9px"><b>${esc(rs[0].nama)}</b><div class="mut sm">${esc(poktan)} · ${rs.map(r => esc(r.komoditas)).join(', ')} · ${S.tahun}</div></div>
@@ -321,6 +328,7 @@ export function openDptForm(nik, poktan) {
 
 // ===== tambah / ubah data petani =====
 export function openPetaniForm(rec, nikPreset, person) {
+  if (!person && !isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   const ids = person ? (S.byNik[person] || []).map(x => x.id_data) : [];
   if (person) rec = S.byNik[person][0];
   const hasTx = person ? (S.penRaw.some(x => ids.includes(x.id_data)) || S.kg.some(x => ids.includes(x.id_data)) || S.bf.some(x => ids.includes(x.id_data))) : false;
@@ -337,9 +345,10 @@ export function openPetaniForm(rec, nikPreset, person) {
     ${rec ? '' : '<p class="mut sm">Tips: kalau NIK ini sudah punya data di komoditas/poktan lain, tambahkan sebagai data baru dengan NIK yang sama.</p>'}
     ${person && rec.nik ? berkasHtml(rec.nik) : person ? '<p class="sm mut">Isi NIK dulu untuk bisa menyimpan tanda tangan, KTP, dan KK.</p>' : ''}`,
     {
-      title: person ? 'Ubah data petani' : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isMgr() && !hasTx ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
+      title: person ? (isAdmin() ? 'Ubah data petani' : 'Data petani') : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isAdmin() && !hasTx ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
       onOpen: d => {
         if (person && rec.nik) wireBerkas(d, rec.nik);
+        if (!isAdmin()) { $$('.bd > .fld input, .bd > .row2 input, .bd > .fld select', d).forEach(i => i.disabled = true); const s0 = $('#pS', d); if (s0) s0.remove(); }
         const dl = $('#pDel', d);
         if (dl) dl.onclick = async () => {
           const nm = rec.nama, np = (S.penRaw || []).filter(x => ids.includes(x.id_data)).length;

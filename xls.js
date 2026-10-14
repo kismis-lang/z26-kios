@@ -1,5 +1,5 @@
 import { $, $$, esc, n, KODE, NAMA, toast, I, tglWIB } from './util.js';
-import { sb, S, isMgr, sum, reloadTx } from './data.js';
+import { sb, S, isMgr, isAdmin, sum, reloadTx } from './data.js';
 import { openDrawer, closeDrawer, hooks } from './ui.js';
 
 let loading;
@@ -57,7 +57,7 @@ export function openImportPetani() {
       title: 'Impor petani dari Excel', footer: '<button class="btn" data-close>Tutup</button><button class="btn pri" id="xGo" disabled>Proses impor</button>',
       onOpen: d => {
         $('#xTpl', d).onclick = templatePetani;
-        if (!isMgr()) $('#xRes', d).innerHTML = '<p class="bad">Hanya admin / pemilik yang boleh mengimpor.</p>';
+        if (!isAdmin()) $('#xRes', d).innerHTML = '<p class="bad">Hanya admin yang boleh mengimpor.</p>';
         let plan = null;
         $('#xF', d).onchange = async e => {
           const f = e.target.files[0]; if (!f) return;
@@ -77,7 +77,7 @@ export function openImportPetani() {
             });
             plan = [...upd, ...add];
             $('#xRes', d).innerHTML = `<div class="card" style="padding:10px"><b>${n(rows.length)}</b> baris dibaca<br>Diperbarui: <b>${n(upd.length)}</b> · Baru: <b>${n(add.length)}</b>${bad.length ? ` · Dilewati (tanpa nama): ${bad.length}` : ''}</div>`;
-            $('#xGo', d).disabled = !isMgr() || !plan.length;
+            $('#xGo', d).disabled = !isAdmin() || !plan.length;
           } catch (er) { $('#xRes', d).innerHTML = `<p class="bad">${esc(er.message)}</p>`; }
         };
         $('#xGo', d).onclick = async () => {

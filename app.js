@@ -1,7 +1,7 @@
 import { $, $$, esc, n, rp, KODE, NAMA, tgl, tglJam, ini, pct, uid, toast, I, lsGet, lsSet, debounce, tglWIB, sak, jam, dtLocal, fromLocal } from './util.js';
 import { sb, S, loadProfile, loadAll, reloadTx, loadTahun, isMgr, isAdmin, all, ringkasHariIni, totalBelum, stokProduk, perPoktan, penjualan14Hari, sum, z } from './data.js';
 import { hooks, nav, openDrawer, closeDrawer, isDrawerOpen, barHtml, lbar, berat, kgSak } from './ui.js';
-import { openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
+import { hapusSale, openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
 import { exportPetani, exportPenjualan, openImportPetani } from './xls.js';
 import { openImporBerkas, bukaBerkas, unggahStok } from './berkas.js';
 
@@ -146,9 +146,10 @@ function shell() {
 }
 function yrFill() {
   const e = $('#yr'); if (!e) return;
-  e.innerHTML = S.tahunList.map(t => `<option value="${t}" ${t === S.tahun ? 'selected' : ''}>${t}</option>`).join('') + (isMgr() ? '<option value="new">+ Tahun baru…</option>' : '');
+  e.innerHTML = S.tahunList.map(t => `<option value="${t}" ${t === S.tahun ? 'selected' : ''}>${t}</option>`).join('') + (isAdmin() ? '<option value="new">+ Tahun baru…</option>' : '');
 }
 function render(keepScroll) {
+  document.body.classList.toggle('ro', !isAdmin());
   const y = window.scrollY; yrFill();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view || (b.closest('#bnav') && b.dataset.v === 'lainnya' && !BNAV.includes(view))));
   const P = { beranda, petani, penjualan, belum, gudang, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
@@ -284,7 +285,7 @@ function komHtml(r) {
     const ket = ketOtomatis(r);
     body = `<div class="lvb">${pupukRows(r)}
       <div class="sub"><b>Riwayat</b>${sales.length ? '' : ' <span class="mut">belum ada penjualan</span>'}</div>
-      ${sales.map((s, i) => { const o = F.open.has('s:' + s.no_pesanan); return `<div class="lv lv3 ${o ? 'open' : ''}"><div class="tap" data-tog="s:${esc(s.no_pesanan)}"><span class="chev">›</span><span class="mut">${sales.length - i}.</span><span class="nop"><b>${esc(s.no_pesanan)}</b><span class="mut">${tgl(s.tanggal_waktu)}</span></span><span class="sp"></span>${sum(s.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}<button class="btn xs" data-esale="${esc(s.no_pesanan)}" title="Ubah input / rencana / pengambilan">${I.edit}</button><button class="btn xs" data-cetak="${esc(s.no_pesanan)}|input" title="Cetak nota">${I.print}</button></div>${o ? saleDetail(s.no_pesanan, r) : ''}</div>`; }).join('')}
+      ${sales.map((s, i) => { const o = F.open.has('s:' + s.no_pesanan); return `<div class="lv lv3 ${o ? 'open' : ''}"><div class="tap" data-tog="s:${esc(s.no_pesanan)}"><span class="chev">›</span><span class="mut">${sales.length - i}.</span><span class="nop"><b>${esc(s.no_pesanan)}</b><span class="mut">${tglJam(s.tanggal_waktu)} · <b class="ink">${rp(s.total_harga)}</b></span></span><span class="sp"></span>${sum(s.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}<button class="btn xs" data-esale="${esc(s.no_pesanan)}" title="Ubah input / rencana / pengambilan">${I.edit}</button><button class="btn xs bad" data-sdel="${esc(s.no_pesanan)}" title="Hapus penjualan">${I.trash}</button><button class="btn xs" data-cetak="${esc(s.no_pesanan)}|input" title="Cetak nota">${I.print}</button></div>${o ? saleDetail(s.no_pesanan, r) : ''}</div>`; }).join('')}
       ${biBlock(r)}
       ${ket || r.keterangan ? `<div class="ket"><b>Keterangan:</b> ${esc(ket || r.keterangan)}</div>` : ''}
       <div class="rl"><button class="btn sm pri" data-jual="${r.id_data}">${I.plus} Jual</button><button class="btn sm" data-bi="${r.id_data}">${I.camera} Ambil sebelum input</button><button class="btn xs" data-edit="${r.id_data}" title="Ubah kuota / luas">${I.edit}</button></div></div>`;
@@ -329,7 +330,7 @@ function petani(el) {
   if (stF) groups = groups.filter(([k, rs]) => rs.some(stF));
   groups.sort((a, b) => a[1][0].nama.localeCompare(b[1][0].nama));
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Petani <span class="mut sm">${n(groups.length)} NIK</span></h2>
-    <button class="btn sm" id="xImp">${I.upload} Impor</button><button class="btn sm" id="xExp">${I.download} Ekspor</button>${isMgr() ? `<button class="btn sm pri" id="pAdd">${I.plus} Tambah</button>` : ''}</div>
+    <button class="btn sm" id="xImp">${I.upload} Impor</button><button class="btn sm" id="xExp">${I.download} Ekspor</button>${isAdmin() ? `<button class="btn sm pri" id="pAdd">${I.plus} Tambah</button>` : ''}</div>
     <div class="bar"><input class="in sm-in" style="max-width:220px" id="fq" placeholder="Filter nama / NIK" value="${esc(F.q)}">
       <select class="in sm-in" style="width:auto" id="fp"><option value="">Semua poktan</option>${poktans.map(x => `<option ${x === F.poktan ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
       <select class="in sm-in" style="width:auto" id="fk"><option value="">Semua komoditas</option>${koms.map(x => `<option ${x === F.kom ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
@@ -356,6 +357,7 @@ function wireGroups(el) {
     if ((b = B('[data-bi]'))) return openBelumInput(S.pid[b.dataset.bi]);
     if ((b = B('[data-edit]'))) return openPetaniForm(S.pid[b.dataset.edit]);
     if ((b = B('[data-ambil]'))) return openAmbil(b.dataset.ambil);
+    if ((b = B('[data-sdel]'))) return hapusSale(b.dataset.sdel);
     if ((b = B('[data-esale]'))) { const sl = S.sale[b.dataset.esale]; return sl && openJual(S.pid[sl.id_data], sl); }
     if ((b = B('[data-nota]'))) return cetakNota(b.dataset.nota);
     if ((b = B('[data-cetak]'))) { const [no, md, pid] = b.dataset.cetak.split('|'); return cetakNota(no, md, pid || null); }
@@ -629,7 +631,7 @@ async function pengaturan(el) {
     <div class="bar">${[['hijau', '#16a34a'], ['biru', '#2563eb'], ['oranye', '#ea580c']].map(([k, c]) => `<span class="chip ${ac === k ? 'on' : ''}" data-ac="${k}"><i class="dot" style="--c:${c}"></i>${k}</span>`).join('')}</div>
     ${standalone() ? '' : `<button class="btn sm" id="sInst">${I.install} Pasang aplikasi di perangkat ini</button>`}</div>
   <div class="card"><h3>Akun</h3><p class="mut">${esc(S.user.email)} · ${esc(S.prof.role)}</p><div class="fld"><label>Ganti kata sandi</label><input class="in" type="password" id="np" minlength="6" placeholder="kata sandi baru"></div><button class="btn" id="npS">Simpan kata sandi</button></div>
-  ${isMgr() ? `<div class="card"><h3>Harga & nota</h3><div id="hargaF"></div></div>` : ''}
+  ${isAdmin() ? `<div class="card"><h3>Harga & nota</h3><div id="hargaF"></div></div>` : ''}
   ${isAdmin() ? `<div class="card"><h3>Berkas lama (AppSheet)</h3><p class="mut sm">Unggah tanda tangan (Data_Images) serta BAST & nota penebusan (z26/BAST, z26/Nota_penebusan). File dikenali otomatis dari namanya.</p><button class="btn pri" id="ibOpen">${I.upload} Impor berkas lama</button></div>` : ''}
   ${isAdmin() ? `<div class="card"><h3>Pengguna</h3><div id="usr" class="list"><span class="mut">Memuat…</span></div></div>
   <div class="card"><h3>Impor data lama (JSON migrasi)</h3><p class="mut sm">Pilih file <b>import_z26.json</b> hasil migrasi dari AppSheet. Aman diulang (data yang sama ditimpa, tidak dobel).</p><input type="file" id="imp" accept=".json"><div id="impLog" class="sm mut" style="margin-top:8px;white-space:pre-line"></div></div>` : ''}</div>`;
@@ -638,7 +640,7 @@ async function pengaturan(el) {
   const si = $('#sInst'); if (si) si.onclick = pasang;
   const ib = $('#ibOpen'); if (ib) ib.onclick = openImporBerkas;
   $('#npS').onclick = async () => { const v = $('#np').value; if (v.length < 6) return toast('Minimal 6 karakter'); const { error } = await sb.auth.updateUser({ password: v }); toast(error ? error.message : 'Kata sandi diperbarui'); };
-  if (isMgr()) {
+  if (isAdmin()) {
     const keys = [['nama_kios', 'Nama kios'], ['kode_kios', 'Kode kios'], ['alamat_kios', 'Alamat'], ['judul_nota_1', 'Judul nota 1'], ['judul_nota_2', 'Judul nota 2'], ['koli_per_sak', 'Koli per sak'], ['harga_sak_urea', 'Harga/sak Urea'], ['harga_sak_phonska', 'Harga/sak Phonska'], ['harga_sak_organik', 'Harga/sak Organik'], ['harga_sak_za', 'Harga/sak ZA'], ['batas_stok_menipis', 'Batas stok menipis (kg)']];
     $('#hargaF').innerHTML = `<p class="sm mut">Harga jual per kg</p>${KODE.map(k => S.byKode[k]).map(p => `<div class="row2"><div class="fld"><label>${esc(p.nama)} jual /kg</label><input class="in" type="number" data-pj="${p.id}" value="${p.harga_jual}"></div><div class="fld"><label>Luar kelompok /kg</label><input class="in" type="number" data-pl="${p.id}" value="${p.harga_luar}"></div></div>`).join('')}
       ${keys.map(([k, l]) => `<div class="fld"><label>${l}</label><input class="in" data-set="${k}" value="${esc(S.set[k] ?? '')}"></div>`).join('')}<button class="btn pri" id="hS">Simpan</button>`;
@@ -702,6 +704,7 @@ boot();
 
 // ===== tahun baru / tahun sebelumnya =====
 function openTahunBaru() {
+  if (!isAdmin()) return toast('Hanya admin');
   const sumber = S.tahunList;
   openDrawer(`<p class="mut sm">Setiap tahun punya data petani, kuota, penjualan, dan gudang sendiri. Buat tahun baru untuk musim berikutnya, atau tahun lama untuk memasukkan riwayat sebelumnya.</p>
     <div class="fld"><label>Tahun</label><input class="in" id="tY" type="number" value="${Math.max(...S.tahunList) + 1}" min="2000" max="2100"></div>
