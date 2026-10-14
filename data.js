@@ -139,7 +139,9 @@ export function stokProduk() {
     const awal = Number(pr.gudang_stok_awal), keluar = ambil + bi;
     const fisik = awal + masuk - keluar - lkOut + lkIn;           // stok nyata di gudang
     const sistem = Number(pr.stok_awal) + masuk - input;          // stok menurut input aplikasi resmi
-    return { pr, k, id, awal, masuk, input, rencana, ambil, bi, ba, kios: input - rencana, lkOut, lkIn, keluar, fisik, sistem, selisih: fisik - sistem, belakang: Number(pr.gudang_belakang) };
+    const belakang = (Number(pr.gudang_belakang) || 0) * (Number(pr.berat_sak) || 50);   // gudang_belakang disimpan dalam SAK
+    const selisih = fisik - sistem, lebih = selisih - ba, thnLalu = Number(pr.stok_awal) - awal;
+    return { pr, k, id, awal, awalIp: Number(pr.stok_awal), masuk, input, rencana, ambil, bi, ba, kios: input - rencana, lkOut, lkIn, keluar, fisik, sistem, selisih, belakang, depan: fisik - belakang, lebih, thnLalu, sisaLebih: thnLalu + lkOut + lebih };
   });
 }
 export function perPoktan() {
