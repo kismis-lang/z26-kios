@@ -426,9 +426,9 @@ const docBtn = (s, k, lab) => { const p = s[k + '_path']; return (p ? `<button c
 function gudang(el) {
   const st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000;
   const row = (l, v, k, cls = '') => `<tr><td>${l}</td><td class="num ${cls}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(k)))} sak</td></tr>`;
-  el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2>${isMgr() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
+  el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2>${isAdmin() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
     <div class="grid g2">${st.map(x => { const R = (l, v, c = '', ind = 0) => `<tr><td style="padding-left:${ind * 10}px">${l}</td><td class="num ${c}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(x.k)))} sak</td></tr>`, H = t => `<tr><td colspan="3" class="b" style="padding-top:8px;color:var(--ac)">${t}</td></tr>`;
-      return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b style="flex:1"><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}${isMgr() ? `<button class="btn ic xs" data-gb="${x.k}" title="Ubah stok gudang belakang">${I.gdg}</button>` : ''}</div>
+      return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b style="flex:1"><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}${isAdmin() ? `<button class="btn ic xs" data-gb="${x.k}" title="Ubah stok gudang belakang">${I.gdg}</button>` : ''}</div>
       <table class="dn" style="margin-top:4px">${H('STOK AWAL')}${R('Gudang', x.awal, '', 1)}${R('i-pubers', x.awalIp, '', 1)}${R('Selisih (gudang − i-pubers)', x.awal - x.awalIp, x.awal - x.awalIp < 0 ? 'bad' : '', 1)}
       ${H('MASUK')}${R('Dari distributor', x.masuk, '', 1)}${R('Dari luar', x.lkIn, '', 1)}${R('Jumlah masuk', x.masuk + x.lkIn, 'b', 1)}
       ${H('KELUAR')}${R('Ke petani — sudah foto', x.ambil, '', 1)}${R('Ke petani — belum foto', x.bi, '', 1)}${R('Jumlah ke petani', x.ambil + x.bi, '', 1)}${R('Ke luar', x.lkOut, '', 1)}${R('Jumlah keluar', x.ambil + x.bi + x.lkOut, 'b', 1)}
@@ -436,9 +436,11 @@ function gudang(el) {
       ${H('KETERANGAN LAIN')}${R('Sisa lebih', x.sisaLebih, '', 1)}${R('Keluar tahun lalu', x.thnLalu, '', 2)}${R('Keluar tahun ini', x.lkOut, '', 2)}${R('Total keluar', x.thnLalu + x.lkOut, '', 2)}${R('Masih di gudang', x.lebih, x.lebih < 0 ? 'bad b' : 'b', 1)}</table>
       <div class="sm mut" style="margin-top:6px">Milik kios (input − rencana): ${n(x.kios)} kg · Rencana ke petani: ${n(x.rencana)} kg</div></div>`; }).join('')}</div>
     <div class="sec"><h3>Riwayat barang masuk</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>Produk</th><th class="num">Masuk (kg)</th><th class="num">Harga beli</th><th>Dokumen</th></tr>
-    ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
+    ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}<div class="mut sm">${jam(s.tanggal_input)}</div>${isAdmin() ? `<div class="rab"><button class="btn xs" data-sted="${esc(s.id_stok)}" title="Ubah">${I.edit}</button><button class="btn xs bad" data-stdel="${esc(s.id_stok)}" title="Hapus">${I.trash}</button></div>` : ''}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
       <div class="dokb">${docBtn(s, 'bast', 'BAST')}${docBtn(s, 'nota', 'Nota')}</div></td></tr>`).join('')}</table></div></div>`;
-  const t = $('#terima'); if (t) t.onclick = terimaBarang;
+  const t = $('#terima'); if (t) t.onclick = () => terimaBarang();
+  $$('[data-sted]', el).forEach(b => b.onclick = () => terimaBarang(S.stok.find(x => x.id_stok === b.dataset.sted)));
+  $$('[data-stdel]', el).forEach(b => b.onclick = () => hapusStok(b.dataset.stdel));
   $$('[data-gb]', el).forEach(b => b.onclick = () => formGudangBelakang(st.find(x => x.k === b.dataset.gb)));
   $$('[data-dopen]', el).forEach(b => b.onclick = () => bukaBerkas(b.dataset.dopen));
   $$('input[data-dup]', el).forEach(i => i.onchange = async () => { const [id, k] = i.dataset.dup.split('|'); if (!i.files[0]) return; toast('Mengunggah…'); try { await unggahStok(id, k, i.files[0]); toast('Tersimpan'); gudang(el); } catch (e) { toast('Gagal: ' + (e.message || e)); } });
@@ -463,26 +465,39 @@ function formGudangBelakang(x) {
       }
     });
 }
-function terimaBarang() {
-  openDrawer(`<div class="fld"><label>Produk</label><select class="in" id="tP">${KODE.map(k => S.byKode[k]).map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('')}</select></div>
-    <div class="fld"><label>No. dokumen / BAST (opsional)</label><input class="in" id="tN" placeholder="PKP…"></div>
-    <div class="row2"><div class="fld"><label>Jumlah masuk (kg)</label><input class="in" id="tJ" type="number" inputmode="decimal"></div><div class="fld"><label>Harga beli total (Rp)</label><input class="in" id="tH" type="number" inputmode="decimal"></div></div>
-    <div class="fld"><label>Keterangan</label><input class="in" id="tK"></div><div class="mut sm" id="tKg"></div>
-    ${isAdmin() ? `<div class="row2"><div class="fld"><label>File BAST (foto/PDF)</label><input class="in" id="tFb" type="file" accept="image/*,application/pdf"></div><div class="fld"><label>File nota penebusan</label><input class="in" id="tFn" type="file" accept="image/*,application/pdf"></div></div>` : ''}`,
+function terimaBarang(rec) {
+  const ed = !!rec, r = rec || {};
+  openDrawer(`<div class="row2"><div class="fld"><label>Produk</label><select class="in" id="tP">${KODE.map(k => S.byKode[k]).filter(Boolean).map(p => `<option value="${p.id}" ${p.id === r.id_produk ? 'selected' : ''}>${esc(p.nama)}</option>`).join('')}</select></div>
+    <div class="fld"><label>Tanggal & jam</label><input class="in" id="tTg" type="datetime-local" value="${dtLocal(r.tanggal_input || new Date())}"></div></div>
+    <div class="fld"><label>No. dokumen / BAST${ed ? '' : ' (opsional)'}</label><input class="in" id="tN" placeholder="PKP…" value="${esc(r.id_stok || '')}" ${ed ? 'readonly' : ''}></div>
+    <div class="row2"><div class="fld"><label>Jumlah masuk (kg)</label><input class="in" id="tJ" type="number" inputmode="decimal" value="${r.jumlah_masuk ?? ''}"></div><div class="fld"><label>Harga beli total (Rp)</label><input class="in" id="tH" type="number" inputmode="decimal" value="${r.harga_beli_total ?? ''}"></div></div>
+    <div class="fld"><label>Keterangan</label><input class="in" id="tK" value="${esc(r.keterangan || '')}"></div><div class="mut sm" id="tKg"></div>
+    <div class="row2"><div class="fld"><label>File BAST ${r.bast_path ? '(ganti)' : '(foto/PDF)'}</label><input class="in" id="tFb" type="file" accept="image/*,application/pdf"></div><div class="fld"><label>File nota penebusan ${r.nota_path ? '(ganti)' : ''}</label><input class="in" id="tFn" type="file" accept="image/*,application/pdf"></div></div>`,
     {
-      title: 'Terima barang', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="tS">Simpan</button>', onOpen: d => {
-        const u = () => { const j = Number($('#tJ', d).value), h = Number($('#tH', d).value); $('#tKg', d).textContent = j > 0 && h > 0 ? 'Harga beli per kg: ' + rp(h / j) : ''; }; $('#tJ', d).oninput = $('#tH', d).oninput = u;
+      title: ed ? 'Ubah barang masuk' : 'Terima barang', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="tS">Simpan</button>', onOpen: d => {
+        const u = () => { const j = Number($('#tJ', d).value), h = Number($('#tH', d).value), b = Number(S.byId[$('#tP', d).value]?.berat_sak) || 50; $('#tKg', d).textContent = (j > 0 ? `= ${n(j / b)} sak` : '') + (j > 0 && h > 0 ? ' · harga beli per kg: ' + rp(h / j) : ''); };
+        $('#tJ', d).oninput = $('#tH', d).oninput = $('#tP', d).onchange = u; u();
         $('#tS', d).onclick = async () => {
+          if (!isAdmin()) return toast('Hanya admin');
           const j = Number($('#tJ', d).value), h = Number($('#tH', d).value) || null; if (!(j > 0)) return toast('Isi jumlah');
           const pr = S.byId[$('#tP', d).value];
-          const idS = $('#tN', d).value.trim() || 'M' + uid();
-          const { error } = await sb.from('stok').insert({ id_stok: idS, id_produk: pr.id, tahun: S.tahun, tanggal_input: new Date().toISOString(), jumlah_masuk: j, harga_beli_total: h, harga_beli_kg: h ? h / j : null, keterangan: $('#tK', d).value || null, berat_sak: pr.berat_sak });
+          const idS = ed ? r.id_stok : ($('#tN', d).value.trim() || 'M' + uid());
+          const row = { id_produk: pr.id, tanggal_input: fromLocal($('#tTg', d).value), jumlah_masuk: j, harga_beli_total: h, harga_beli_kg: h ? h / j : null, keterangan: $('#tK', d).value || null, berat_sak: pr.berat_sak };
+          const { error } = ed ? await sb.from('stok').update(row).eq('id_stok', idS) : await sb.from('stok').insert({ id_stok: idS, tahun: S.tahun, ...row });
           if (error) return toast(error.message);
-          for (const [sel, k] of [['#tFb', 'bast'], ['#tFn', 'nota']]) { const f = $(sel, d)?.files?.[0]; if (f) { S.stok.push({ id_stok: idS }); try { await unggahStok(idS, k, f); } catch (e) { toast('Berkas ' + k + ' gagal: ' + (e.message || e)); } } }
+          for (const [sel, k] of [['#tFb', 'bast'], ['#tFn', 'nota']]) { const f = $(sel, d)?.files?.[0]; if (f) { if (!S.stok.find(x => x.id_stok === idS)) S.stok.push({ id_stok: idS }); try { await unggahStok(idS, k, f); } catch (e) { toast('Berkas ' + k + ' gagal: ' + (e.message || e)); } } }
           toast('Tersimpan'); closeDrawer(); await boot(true);
         };
       }
     });
+}
+async function hapusStok(id) {
+  const r = S.stok.find(x => x.id_stok === id); if (!r || !isAdmin()) return;
+  if (!confirm(`Hapus barang masuk ${r.id_stok}?\n${S.byId[r.id_produk]?.nama || ''} ${n(r.jumlah_masuk)} kg · ${tglJam(r.tanggal_input)}\n\nStok gudang akan ikut berkurang. Tidak bisa dibatalkan.`)) return;
+  const { error } = await sb.from('stok').delete().eq('id_stok', id); if (error) return toast(error.message);
+  const files = [r.bast_path, r.nota_path].filter(Boolean).filter(p => !S.stok.some(x => x.id_stok !== id && (x.bast_path === p || x.nota_path === p)));
+  if (files.length) await sb.storage.from('berkas').remove(files);
+  toast('Dihapus'); await boot(true);
 }
 
 // ===== luar kelompok =====
@@ -493,23 +508,36 @@ async function luar(el) {
   const lkH = [...S.lk], lkmH = [...S.lkm];
   lkH.sort((a, b) => String(b.tanggal_waktu).localeCompare(String(a.tanggal_waktu))); lkmH.sort((a, b) => String(b.tanggal_waktu).localeCompare(String(a.tanggal_waktu)));
   const blok = (jud, hdr, det, idk, nm) => `<div class="sec"><h3>${jud}</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>${nm === 'pembeli' ? 'Pembeli' : 'Dari'}</th><th>Barang</th><th class="num">Total</th></tr>
-    ${hdr.map(h => `<tr><td>${tgl(h.tanggal_waktu)}<div class="mut sm">${jam(h.tanggal_waktu)}</div></td><td>${esc(h[nm])}</td><td>${ket(det, idk, h[idk])}</td><td class="num">${rp(h.total_harga)}</td></tr>`).join('')}</table></div></div>`;
-  el.innerHTML = `<div class="bar"><h2 style="flex:1">Luar kelompok</h2><button class="btn pri" id="lkJ">${I.plus} Jual luar</button>${isMgr() ? `<button class="btn" id="lkM">${I.plus} Terima dari luar</button>` : ''}</div>
+    ${hdr.map(h => `<tr><td>${tgl(h.tanggal_waktu)}<div class="mut sm">${jam(h.tanggal_waktu)}</div>${isAdmin() ? `<div class="rab"><button class="btn xs" data-lked="${nm === 'pembeli' ? 'k' : 'm'}|${esc(h[idk])}" title="Ubah">${I.edit}</button><button class="btn xs bad" data-lkdel="${nm === 'pembeli' ? 'k' : 'm'}|${esc(h[idk])}" title="Hapus">${I.trash}</button></div>` : ''}</td><td>${esc(h[nm])}</td><td>${ket(det, idk, h[idk])}</td><td class="num">${rp(h.total_harga)}</td></tr>`).join('')}</table></div></div>`;
+  el.innerHTML = `<div class="bar"><h2 style="flex:1">Luar kelompok</h2>${isAdmin() ? `<button class="btn pri" id="lkJ">${I.plus} Jual luar</button><button class="btn" id="lkM">${I.plus} Terima dari luar</button>` : ''}</div>
     <div class="grid g4">${kpi('Penjualan luar', rp(S.dlk.reduce((a, b) => a + Number(b.subtotal), 0)), I.out, n(lkH.length) + ' transaksi')}${kpi('Barang masuk dari luar', rp(S.dlm.reduce((a, b) => a + Number(b.subtotal), 0)), I.truck, n(lkmH.length) + ' transaksi')}</div>
     ${blok('Penjualan luar kelompok', lkH, S.dlk, 'id_lk', 'pembeli')}${blok('Barang masuk dari luar', lkmH, S.dlm, 'id_lkm', 'dari')}`;
-  $('#lkJ').onclick = () => formLK(true); const m = $('#lkM'); if (m) m.onclick = () => formLK(false);
+  const j = $('#lkJ'); if (j) j.onclick = () => formLK(true); const m = $('#lkM'); if (m) m.onclick = () => formLK(false);
+  $$('[data-lked]', el).forEach(b => { const [t, id] = b.dataset.lked.split('|'); b.onclick = () => formLK(t === 'k', (t === 'k' ? S.lk : S.lkm).find(x => (x.id_lk || x.id_lkm) === id)); });
+  $$('[data-lkdel]', el).forEach(b => { const [t, id] = b.dataset.lkdel.split('|'); b.onclick = () => hapusLK(t === 'k', id); });
 }
-function formLK(keluar) {
+async function hapusLK(keluar, id) {
+  if (!isAdmin()) return;
+  const h = (keluar ? S.lk : S.lkm).find(x => (keluar ? x.id_lk : x.id_lkm) === id); if (!h) return;
+  if (!confirm(`Hapus ${keluar ? 'penjualan luar ke ' + h.pembeli : 'barang masuk dari ' + h.dari}?\n${tglJam(h.tanggal_waktu)} · ${rp(h.total_harga)}\n\nStok gudang ikut berubah. Tidak bisa dibatalkan.`)) return;
+  let r = await sb.from(keluar ? 'detail_lk' : 'dlk_masuk').delete().eq(keluar ? 'id_lk' : 'id_lkm', id); if (r.error) return toast(r.error.message);
+  r = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').delete().eq(keluar ? 'id_lk' : 'id_lkm', id); if (r.error) return toast(r.error.message);
+  toast('Dihapus'); await boot(true);
+}
+function formLK(keluar, rec) {
   const prods = KODE.map(k => S.byKode[k]).filter(Boolean);
+  const ed = !!rec, idk = keluar ? 'id_lk' : 'id_lkm';
+  const dets = ed ? (keluar ? S.dlk : S.dlm).filter(x => x[idk] === rec[idk]) : [];
+  const dv = (p, f) => { const x = dets.find(y => y.id_produk === p.id); if (!x) return ''; const b = Number(p.berat_sak) || 50; return f === 'j' ? +(x.jumlah / b).toFixed(2) : Math.round(x.harga_satuan * b); };
   const hSak = p => Math.round((Number(keluar ? p.harga_luar : p.hlm) || 0) * (Number(p.berat_sak) || 50)) || '';
-  openDrawer(`<div class="row2"><div class="fld"><label>Tanggal & jam</label><input class="in" id="lTg" type="datetime-local" value="${dtLocal(new Date())}"></div>
-    <div class="fld ac"><label>${keluar ? 'Pembeli' : 'Dari'}</label><input class="in" id="lN" autocomplete="off" placeholder="ketik / pilih"><div class="acl hide" id="lNl"></div></div></div>
+  openDrawer(`<div class="row2"><div class="fld"><label>Tanggal & jam</label><input class="in" id="lTg" type="datetime-local" value="${dtLocal(ed ? rec.tanggal_waktu : new Date())}"></div>
+    <div class="fld ac"><label>${keluar ? 'Pembeli' : 'Dari'}</label><input class="in" id="lN" autocomplete="off" placeholder="ketik / pilih" value="${esc(ed ? (rec.pembeli || rec.dari || '') : '')}"><div class="acl hide" id="lNl"></div></div></div>
     ${prods.map(p => `<div class="card c-${p.kode}" style="margin-bottom:8px;padding:9px" data-p="${p.id}" data-k="${p.kode}"><b><i class="dot"></i>${NAMA[p.kode]}</b> <span class="mut sm">(1 sak = ${n(p.berat_sak)} kg)</span>
-      <div class="row2"><div class="fld"><label>Jumlah (sak)</label><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="j"><span class="stp"><button type="button" class="btn" data-ls="1">▲</button><button type="button" class="btn" data-ls="-1">▼</button></span></span><span class="sm mut" data-o="kg"></span></div>
-      <div class="fld"><label>Harga / sak (Rp)</label><input class="in" type="number" inputmode="decimal" data-f="h" value="${hSak(p)}"><span class="sm mut" data-o="hkg"></span></div></div><div class="sm r" data-o="sub"></div></div>`).join('')}
-    <div class="fld"><label>Keterangan</label><input class="in" id="lK"></div><div class="card" style="display:flex;justify-content:space-between"><span class="mut">Total</span><b id="lT">Rp 0</b></div>`,
+      <div class="row2"><div class="fld"><label>Jumlah (sak)</label><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="j" value="${dv(p, 'j')}"><span class="stp"><button type="button" class="btn" data-ls="1">▲</button><button type="button" class="btn" data-ls="-1">▼</button></span></span><span class="sm mut" data-o="kg"></span></div>
+      <div class="fld"><label>Harga / sak (Rp)</label><input class="in" type="number" inputmode="decimal" data-f="h" value="${ed ? (dv(p, 'h') || hSak(p)) : hSak(p)}"><span class="sm mut" data-o="hkg"></span></div></div><div class="sm r" data-o="sub"></div></div>`).join('')}
+    <div class="fld"><label>Keterangan</label><input class="in" id="lK" value="${esc(ed ? rec.keterangan || '' : '')}"></div><div class="card" style="display:flex;justify-content:space-between"><span class="mut">Total</span><b id="lT">Rp 0</b></div>`,
     {
-      title: keluar ? 'Jual luar kelompok' : 'Terima dari luar', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="lS">Simpan</button>', onOpen: async d => {
+      title: (ed ? 'Ubah ' : '') + (keluar ? 'jual luar kelompok' : 'terima dari luar').replace(/^./, c => ed ? c : c.toUpperCase()), footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="lS">Simpan</button>', onOpen: async d => {
         const calc = () => {
           let t = 0;
           $$('[data-p]', d).forEach(c => {
@@ -539,7 +567,8 @@ function formLK(keluar) {
         };
         inp.onfocus = show; inp.oninput = show; inp.onblur = () => setTimeout(() => box.classList.add('hide'), 150);
         $('#lS', d).onclick = async () => {
-          const nm = inp.value.trim(), id = uid(), det = [];
+          if (!isAdmin()) return toast('Hanya admin');
+          const nm = inp.value.trim(), id = ed ? rec[idk] : uid(), det = [];
           $$('[data-p]', d).forEach(c => {
             const pr = S.byId[c.dataset.p], b = Number(pr.berat_sak) || 50, j = Number($('[data-f=j]', c).value) || 0, h = Number($('[data-f=h]', c).value) || 0;
             if (j > 0) det.push({ id_produk: pr.id, nama_produk: pr.nama, jumlah: j * b, harga_satuan: h / b, subtotal: j * h, berat_sak: b });
@@ -547,8 +576,13 @@ function formLK(keluar) {
           if (!nm || !det.length) return toast('Isi nama dan jumlah');
           const tot = det.reduce((a, b) => a + b.subtotal, 0), tw = fromLocal($('#lTg', d).value) || new Date().toISOString();
           const hd = keluar ? { id_lk: id, tahun: S.tahun, tanggal_waktu: tw, pembeli: nm, total_harga: tot, keterangan: $('#lK', d).value || null } : { id_lkm: id, tahun: S.tahun, tanggal_waktu: tw, dari: nm, total_harga: tot, keterangan: $('#lK', d).value || null };
-          let r = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').insert(hd); if (r.error) return toast(r.error.message);
-          r = await sb.from(keluar ? 'detail_lk' : 'dlk_masuk').insert(det.map((x, i) => keluar ? { id_dlk: id + i, tahun: S.tahun, id_lk: id, pembeli: nm, ...x } : { id_dlkm: id + i, tahun: S.tahun, id_lkm: id, dari: nm, ...x }));
+          let r;
+          if (ed) {
+            delete hd[idk]; delete hd.tahun;
+            r = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').update(hd).eq(idk, id); if (r.error) return toast(r.error.message);
+            r = await sb.from(keluar ? 'detail_lk' : 'dlk_masuk').delete().eq(idk, id); if (r.error) return toast(r.error.message);
+          } else { r = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').insert(hd); if (r.error) return toast(r.error.message); }
+          r = await sb.from(keluar ? 'detail_lk' : 'dlk_masuk').insert(det.map((x, i) => keluar ? { id_dlk: id + '-' + Date.now().toString(36) + i, tahun: ed ? rec.tahun : S.tahun, id_lk: id, pembeli: nm, ...x } : { id_dlkm: id + '-' + Date.now().toString(36) + i, tahun: ed ? rec.tahun : S.tahun, id_lkm: id, dari: nm, ...x }));
           if (r.error) return toast(r.error.message);
           toast('Tersimpan'); closeDrawer(); await boot(true);
         };

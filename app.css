@@ -336,3 +336,4 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 .acl{position:absolute;left:0;right:0;top:100%;z-index:60;margin-top:2px;background:var(--card2);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 22px -8px var(--sh-d);max-height:220px;overflow:auto}
 .aci{padding:8px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--line)}.aci:last-child{border-bottom:0}
 .aci:hover,.aci:active{background:var(--a-soft)}
+.rab{display:flex;gap:4px;margin-top:3px}.rab .btn.xs{width:26px;height:24px}
