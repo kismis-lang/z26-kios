@@ -3,6 +3,7 @@ import { sb, S, loadProfile, loadAll, reloadTx, loadTahun, isMgr, isAdmin, all, 
 import { hooks, nav, openDrawer, closeDrawer, isDrawerOpen, barHtml, lbar, berat, kgSak } from './ui.js';
 import { openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
 import { exportPetani, exportPenjualan, openImportPetani } from './xls.js';
+import { openImporBerkas, bukaBerkas, unggahStok } from './berkas.js';
 
 // ===== tema =====
 const root = document.documentElement;
@@ -420,6 +421,8 @@ function belum(el) {
 }
 
 // ===== gudang =====
+const docBtn = (s, k, lab) => { const p = s[k + '_path']; return (p ? `<button class="btn xs2" data-dopen="${esc(p)}">${I.file} ${lab}</button>` : '')
+  + (isAdmin() ? `<label class="btn xs2 ${p ? '' : 'mutb'}" title="${p ? 'Ganti' : 'Unggah'} ${lab}">${p ? I.edit : I.upload + ' ' + lab}<input type="file" hidden accept="image/*,application/pdf" data-dup="${esc(s.id_stok)}|${k}"></label>` : ''); };
 function gudang(el) {
   const st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000;
   const row = (l, v, k, cls = '') => `<tr><td>${l}</td><td class="num ${cls}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(k)))} sak</td></tr>`;
@@ -433,22 +436,29 @@ function gudang(el) {
       ${H('KETERANGAN LAIN')}${R('Sisa lebih', x.sisaLebih, '', 1)}${R('Keluar tahun lalu', x.thnLalu, '', 2)}${R('Keluar tahun ini', x.lkOut, '', 2)}${R('Total keluar', x.thnLalu + x.lkOut, '', 2)}${R('Masih di gudang', x.lebih, x.lebih < 0 ? 'bad b' : 'b', 1)}</table>
       <div class="sm mut" style="margin-top:6px">Milik kios (input − rencana): ${n(x.kios)} kg · Rencana ke petani: ${n(x.rencana)} kg</div></div>`; }).join('')}</div>
     <div class="sec"><h3>Riwayat barang masuk</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>Produk</th><th class="num">Masuk (kg)</th><th class="num">Harga beli</th><th>Dokumen</th></tr>
-    ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}</td></tr>`).join('')}</table></div></div>`;
+    ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
+      <div class="dokb">${docBtn(s, 'bast', 'BAST')}${docBtn(s, 'nota', 'Nota')}</div></td></tr>`).join('')}</table></div></div>`;
   const t = $('#terima'); if (t) t.onclick = terimaBarang;
+  $$('[data-dopen]', el).forEach(b => b.onclick = () => bukaBerkas(b.dataset.dopen));
+  $$('input[data-dup]', el).forEach(i => i.onchange = async () => { const [id, k] = i.dataset.dup.split('|'); if (!i.files[0]) return; toast('Mengunggah…'); try { await unggahStok(id, k, i.files[0]); toast('Tersimpan'); gudang(el); } catch (e) { toast('Gagal: ' + (e.message || e)); } });
 }
 function terimaBarang() {
   openDrawer(`<div class="fld"><label>Produk</label><select class="in" id="tP">${KODE.map(k => S.byKode[k]).map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('')}</select></div>
     <div class="fld"><label>No. dokumen / BAST (opsional)</label><input class="in" id="tN" placeholder="PKP…"></div>
     <div class="row2"><div class="fld"><label>Jumlah masuk (kg)</label><input class="in" id="tJ" type="number" inputmode="decimal"></div><div class="fld"><label>Harga beli total (Rp)</label><input class="in" id="tH" type="number" inputmode="decimal"></div></div>
-    <div class="fld"><label>Keterangan</label><input class="in" id="tK"></div><div class="mut sm" id="tKg"></div>`,
+    <div class="fld"><label>Keterangan</label><input class="in" id="tK"></div><div class="mut sm" id="tKg"></div>
+    ${isAdmin() ? `<div class="row2"><div class="fld"><label>File BAST (foto/PDF)</label><input class="in" id="tFb" type="file" accept="image/*,application/pdf"></div><div class="fld"><label>File nota penebusan</label><input class="in" id="tFn" type="file" accept="image/*,application/pdf"></div></div>` : ''}`,
     {
       title: 'Terima barang', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="tS">Simpan</button>', onOpen: d => {
         const u = () => { const j = Number($('#tJ', d).value), h = Number($('#tH', d).value); $('#tKg', d).textContent = j > 0 && h > 0 ? 'Harga beli per kg: ' + rp(h / j) : ''; }; $('#tJ', d).oninput = $('#tH', d).oninput = u;
         $('#tS', d).onclick = async () => {
           const j = Number($('#tJ', d).value), h = Number($('#tH', d).value) || null; if (!(j > 0)) return toast('Isi jumlah');
           const pr = S.byId[$('#tP', d).value];
-          const { error } = await sb.from('stok').insert({ id_stok: $('#tN', d).value.trim() || 'M' + uid(), id_produk: pr.id, tahun: S.tahun, tanggal_input: new Date().toISOString(), jumlah_masuk: j, harga_beli_total: h, harga_beli_kg: h ? h / j : null, keterangan: $('#tK', d).value || null, berat_sak: pr.berat_sak });
-          if (error) return toast(error.message); toast('Tersimpan'); closeDrawer(); await boot(true);
+          const idS = $('#tN', d).value.trim() || 'M' + uid();
+          const { error } = await sb.from('stok').insert({ id_stok: idS, id_produk: pr.id, tahun: S.tahun, tanggal_input: new Date().toISOString(), jumlah_masuk: j, harga_beli_total: h, harga_beli_kg: h ? h / j : null, keterangan: $('#tK', d).value || null, berat_sak: pr.berat_sak });
+          if (error) return toast(error.message);
+          for (const [sel, k] of [['#tFb', 'bast'], ['#tFn', 'nota']]) { const f = $(sel, d)?.files?.[0]; if (f) { S.stok.push({ id_stok: idS }); try { await unggahStok(idS, k, f); } catch (e) { toast('Berkas ' + k + ' gagal: ' + (e.message || e)); } } }
+          toast('Tersimpan'); closeDrawer(); await boot(true);
         };
       }
     });
@@ -532,11 +542,13 @@ async function pengaturan(el) {
     ${standalone() ? '' : `<button class="btn sm" id="sInst">${I.install} Pasang aplikasi di perangkat ini</button>`}</div>
   <div class="card"><h3>Akun</h3><p class="mut">${esc(S.user.email)} · ${esc(S.prof.role)}</p><div class="fld"><label>Ganti kata sandi</label><input class="in" type="password" id="np" minlength="6" placeholder="kata sandi baru"></div><button class="btn" id="npS">Simpan kata sandi</button></div>
   ${isMgr() ? `<div class="card"><h3>Harga & nota</h3><div id="hargaF"></div></div>` : ''}
+  ${isAdmin() ? `<div class="card"><h3>Berkas lama (AppSheet)</h3><p class="mut sm">Unggah tanda tangan (Data_Images) serta BAST & nota penebusan (z26/BAST, z26/Nota_penebusan). File dikenali otomatis dari namanya.</p><button class="btn pri" id="ibOpen">${I.upload} Impor berkas lama</button></div>` : ''}
   ${isAdmin() ? `<div class="card"><h3>Pengguna</h3><div id="usr" class="list"><span class="mut">Memuat…</span></div></div>
   <div class="card"><h3>Impor data lama (JSON migrasi)</h3><p class="mut sm">Pilih file <b>import_z26.json</b> hasil migrasi dari AppSheet. Aman diulang (data yang sama ditimpa, tidak dobel).</p><input type="file" id="imp" accept=".json"><div id="impLog" class="sm mut" style="margin-top:8px;white-space:pre-line"></div></div>` : ''}</div>`;
   $$('[data-th]', el).forEach(c => c.onclick = () => { lsSet('theme', c.dataset.th); applyTheme(); pengaturan(el); });
   $$('[data-ac]', el).forEach(c => c.onclick = () => { lsSet('accent', c.dataset.ac); applyTheme(); pengaturan(el); });
   const si = $('#sInst'); if (si) si.onclick = pasang;
+  const ib = $('#ibOpen'); if (ib) ib.onclick = openImporBerkas;
   $('#npS').onclick = async () => { const v = $('#np').value; if (v.length < 6) return toast('Minimal 6 karakter'); const { error } = await sb.auth.updateUser({ password: v }); toast(error ? error.message : 'Kata sandi diperbarui'); };
   if (isMgr()) {
     const keys = [['nama_kios', 'Nama kios'], ['kode_kios', 'Kode kios'], ['alamat_kios', 'Alamat'], ['judul_nota_1', 'Judul nota 1'], ['judul_nota_2', 'Judul nota 2'], ['koli_per_sak', 'Koli per sak'], ['harga_sak_urea', 'Harga/sak Urea'], ['harga_sak_phonska', 'Harga/sak Phonska'], ['harga_sak_organik', 'Harga/sak Organik'], ['harga_sak_za', 'Harga/sak ZA'], ['batas_stok_menipis', 'Batas stok menipis (kg)']];

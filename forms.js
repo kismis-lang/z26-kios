@@ -1,6 +1,7 @@
 import { $, $$, esc, n, rp, KODE, NAMA, tglJam, jam, ini, uid, toast, I, sak, kgsak, dtLocal, fromLocal, lsGet, lsSet } from './util.js';
 import { sb, S, reloadTx, isMgr, sum, z } from './data.js';
 import { hooks, openDrawer, closeDrawer, pickerHtml, wirePicker, ringkasPetani, berat } from './ui.js';
+import { berkasHtml, wireBerkas, ttdUrl } from './berkas.js';
 
 const done = async () => { await reloadTx(); hooks.refresh(); };
 
@@ -91,7 +92,7 @@ export function openJual(rec, edit) {
     ${sec(3, 'Diambil', 'Boleh lebih dari satu pengambilan dengan tanggal berbeda: sebelum input, saat transaksi, atau sesudahnya. Mengurangi stok gudang; total tidak boleh melebihi rencana.', '<button class="btn sm" id="qAddPk">+ Pengambilan</button>', `<div id="jPks">${picks.map(pkHtml).join('')}</div><div class="sm" id="jAmSum" style="margin-top:4px"></div>`)}` : '<p class="mut">Petani ini belum punya kuota.</p>'}
     <div class="card" style="display:flex;justify-content:space-between;align-items:center;padding:9px"><span class="mut">Total harga (dari input)</span><b style="font-size:17px" id="jTot">Rp 0</b></div>
     <div class="fld"><label>Keterangan</label><input class="in" id="jKet" placeholder="opsional" value="${esc(sale?.keterangan || '')}"></div>
-    ${sale ? '' : `<div class="fld"><label>Tanda tangan petani (opsional) <button class="btn sm" id="sigClr" style="margin-left:6px">Hapus</button></label><canvas class="sig" id="sig"></canvas></div>`}`;
+    `;
   };
   const val = (d, k, f) => Number($(`[data-k=${k}] [data-f=${f}]`, d)?.value) || 0;
   const readPicks = d => $$('.pkb', d).map(b => ({ tgl: $('[data-f=tgl]', b).value, bf: b.dataset.bf === '1', auto: !!$('[data-f=tgl]', b).dataset.auto, am: Object.fromEntries(KODE.map(k => [k, Number($(`[data-pk=${k}] [data-f=am]`, b)?.value) || 0])) }));
@@ -314,10 +315,12 @@ export function openPetaniForm(rec, nikPreset, person) {
     ${f('pLuas', 'Luas lahan (ha)', src.luas_lahan, 'number', 'step="0.01"')}
     <div class="row2">${KODE.map(k => f('pK_' + k, `Kuota ${NAMA[k]} (kg)`, src['kuota_' + k], 'number')).join('')}</div>
     ${f('pKet', 'Keterangan', src.keterangan)}`}
-    ${rec ? '' : '<p class="mut sm">Tips: kalau NIK ini sudah punya data di komoditas/poktan lain, tambahkan sebagai data baru dengan NIK yang sama.</p>'}`,
+    ${rec ? '' : '<p class="mut sm">Tips: kalau NIK ini sudah punya data di komoditas/poktan lain, tambahkan sebagai data baru dengan NIK yang sama.</p>'}
+    ${person && rec.nik ? berkasHtml(rec.nik) : person ? '<p class="sm mut">Isi NIK dulu untuk bisa menyimpan tanda tangan, KTP, dan KK.</p>' : ''}`,
     {
       title: person ? 'Ubah data petani' : rec ? 'Ubah komoditas / kuota' : 'Tambah petani', footer: (person && isMgr() && !hasTx ? '<button class="btn bad" id="pDel">Hapus petani</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="pS">Simpan</button>',
       onOpen: d => {
+        if (person && rec.nik) wireBerkas(d, rec.nik);
         const dl = $('#pDel', d);
         if (dl) dl.onclick = async () => {
           const nm = rec.nama, np = (S.penRaw || []).filter(x => ids.includes(x.id_data)).length;
@@ -352,8 +355,11 @@ export function openPetaniForm(rec, nikPreset, person) {
 // ===== nota 58 mm =====
 export async function cetakNota(no, mode = 'input', pickId = null) {
   const pj = S.sale[no]; if (!pj) return toast('Penjualan tidak ditemukan');
-  let ttdUrl = '';
-  if (mode === 'input' && pj.ttd_path) { const r = await sb.storage.from('ttd').createSignedUrl(pj.ttd_path, 600); ttdUrl = r.data?.signedUrl || ''; }
+  let ttdUrl_ = '';
+  if (mode === 'input') {                                    // tanda tangan diambil dari data petani (berkas), cadangan: ttd lama di penjualan
+    if (pj.nik) ttdUrl_ = await ttdUrl(pj.nik).catch(() => '');
+    if (!ttdUrl_ && pj.ttd_path) { const r = await sb.storage.from('ttd').createSignedUrl(pj.ttd_path, 600); ttdUrl_ = r.data?.signedUrl || ''; }
+  }
   let rows = [], judul = 'Penyaluran Pupuk', when = pj.tanggal_waktu;
   const hj = id => Number(S.byId[id]?.harga_jual) || 0;
   if (mode === 'input') rows = S.det.filter(r => r.no_pesanan === no).map(r => ({ nama: S.byId[r.id_produk]?.nama || r.nama_produk, h: r.harga_satuan, q: r.jumlah, sub: r.subtotal }));
@@ -380,7 +386,7 @@ export async function cetakNota(no, mode = 'input', pickId = null) {
   <table><tr><td>Subtotal</td><td style="text-align:right">Rp. ${n(total)}</td></tr></table>
   <p style="text-align:right;margin-top:6px">${tg}</p><div style="height:5px"></div>
   <p class="center" style="margin-top:6px">Petani</p><br>
-  ${ttdUrl ? `<div class="center"><img src="${ttdUrl}" style="height:40px;margin:auto" alt=""></div>` : ''}
+  ${ttdUrl_ ? `<div class="center"><img src="${ttdUrl_}" style="height:40px;margin:auto" alt=""></div>` : ''}
   <p class="center" style="margin-top:30px">${esc(pj.nama_petani)}</p><p style="height:30px"></p>`;
   const imgs = $$('#nota img'); await Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
   document.body.classList.add('printing'); window.print(); setTimeout(() => document.body.classList.remove('printing'), 500);

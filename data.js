@@ -55,6 +55,7 @@ export async function loadAll() {
     all('luar_kelompok', '*', 'id_lk', yr()), all('lk_masuk', '*', 'id_lkm', yr()),
   ]);
   Object.assign(S, { produk, petaniRaw: petani, penRaw: pen, det, amb, kg, bf, stok, dlk, dlm, lk, lkm });
+  await loadBerkas();
   S.set = Object.fromEntries(set.map(r => [r.kunci, r.nilai]));
   S.byKode = Object.fromEntries(produk.map(p => [p.kode, p]));
   S.byId = Object.fromEntries(produk.map(p => [p.id, p]));
@@ -161,4 +162,10 @@ export function penjualan14Hari() {
     out.push({ k, label: k.slice(8), omzet: S.pen.filter(p => tglWIB(p.tanggal_waktu) === k).reduce((a, b) => a + Number(b.total_harga), 0) });
   }
   return out;
+}
+
+// berkas petani (ttd, KTP, KK, lain) — tidak per tahun, kunci = NIK
+export async function loadBerkas() {
+  try { S.berkas = await all('berkas', '*', 'created_at'); } catch { S.berkas = []; }
+  S.bByNik = {}; for (const b of S.berkas) (S.bByNik[b.nik] ||= []).push(b);
 }

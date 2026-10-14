@@ -54,6 +54,8 @@ export const I = {
   download: P('<path d="M12 3v12M7 11l5 5 5-5M4 20h16"/>'),
   upload: P('<path d="M12 16V4M7 8l5-5 5 5M4 20h16"/>'),
   edit: P('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
+  eye: P('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
+  file: P('<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/>'),
   trash: P('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>'),
   install: P('<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 8v6M9.5 11.5L12 14l2.5-2.5"/>'),
   check: P('<path d="M5 12l5 5 9-10"/>'),
