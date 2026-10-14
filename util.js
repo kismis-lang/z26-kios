@@ -6,9 +6,13 @@ export const n = v => idn.format(Number(v) || 0);
 export const rp = v => 'Rp ' + idn.format(Math.round(Number(v) || 0));
 export const KODE = ['urea', 'phonska', 'organik', 'za'];
 export const NAMA = { urea: 'Urea', phonska: 'Phonska', organik: 'Organik', za: 'ZA' };
-export const tglWIB = d => new Date(d).toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }); // yyyy-mm-dd
-export const tgl = d => d ? new Date(d).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' }) : '';
-export const jam = d => d ? new Date(d).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }).replace(':', '.') : '';
+const _tw = new Map();
+// yyyy-mm-dd di WIB (UTC+7, tanpa DST) — versi cepat + cache (dulu toLocaleDateString: lambat)
+export const tglWIB = d => { if (d == null) return ''; const k = typeof d === 'string' ? d : null; if (k && _tw.has(k)) return _tw.get(k); const t = new Date(d).getTime(); if (isNaN(t)) return ''; const r = new Date(t + 7 * 3600e3).toISOString().slice(0, 10); if (k) { if (_tw.size > 50000) _tw.clear(); _tw.set(k, r); } return r; };
+const _fT = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' });
+const _fJ = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+export const tgl = d => d ? _fT.format(new Date(d)) : '';
+export const jam = d => d ? _fJ.format(new Date(d)).replace(':', '.') : '';
 export const tglJam = d => d ? tgl(d) + ' ' + jam(d) : '';
 export const ini = s => (s || '?').trim().split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
 export const sak = (kg, b = 50) => { const v = (Number(kg) || 0) / (Number(b) || 50); return Math.round(v * 10) / 10; };
