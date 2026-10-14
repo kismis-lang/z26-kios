@@ -342,3 +342,7 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 .ro [data-jual],.ro [data-bi],.ro [data-ambil],.ro [data-esale],.ro [data-sdel],.ro [data-edit],.ro [data-addrec],.ro [data-dpt],.ro #fab,.ro #pAdd,.ro #xImp,.ro #biAdd,.ro #dDel,.ro #dEdit,.ro #dAmbil,.ro [data-delpick]{display:none!important}
 .nop .ink{color:var(--ink);font-weight:650}
 .nop .mut{white-space:nowrap}
+.ro [data-bfed],.ro [data-bfdel],.ro #bDel{display:none!important}
+.pick .rab{margin:0;flex:none}
+.bfl .pick{padding:1px 0}
+.cpy{border:0;background:none;padding:0 2px;margin-left:3px;cursor:pointer;color:var(--a);vertical-align:-2px}.cpy svg{width:13px;height:13px}

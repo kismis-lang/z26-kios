@@ -1,7 +1,7 @@
 import { $, $$, esc, n, rp, KODE, NAMA, tgl, tglJam, ini, pct, uid, toast, I, lsGet, lsSet, debounce, tglWIB, sak, jam, dtLocal, fromLocal } from './util.js';
 import { sb, S, loadProfile, loadAll, reloadTx, loadTahun, isMgr, isAdmin, all, ringkasHariIni, totalBelum, stokProduk, perPoktan, penjualan14Hari, sum, z } from './data.js';
 import { hooks, nav, openDrawer, closeDrawer, isDrawerOpen, barHtml, lbar, berat, kgSak } from './ui.js';
-import { hapusSale, openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
+import { hapusSale, hapusBf, openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
 import { exportPetani, exportPenjualan, openImportPetani } from './xls.js';
 import { openImporBerkas, bukaBerkas, unggahStok } from './berkas.js';
 
@@ -116,6 +116,13 @@ function shell() {
     <nav id="bnav">${BNAV.map(k => `<button class="nav" data-v="${k}">${{ beranda: I.home, petani: I.users, penjualan: I.cart, gudang: I.box, lainnya: I.more }[k]}<span>${{ beranda: 'Beranda', petani: 'Petani', penjualan: 'Jual', gudang: 'Gudang', lainnya: 'Lainnya' }[k]}</span></button>`).join('')}</nav>
     <button class="fab" id="fab" title="Tambah penjualan">${I.plus}</button>`;
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-bfed],[data-bfdel],[data-copynik]'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    if (b.dataset.copynik) { const v = b.dataset.copynik; (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(() => toast('NIK disalin: ' + v), () => { prompt('Salin NIK:', v); }); return; }
+    if (b.dataset.bfdel) return hapusBf(b.dataset.bfdel);
+    const r = S.bf.find(x => x.id_blmfoto === b.dataset.bfed); if (r) openBelumInput(null, r);
+  }, true);
   $('#fab').onclick = () => openJual(); $('#nHit').onclick = $('#bHit').onclick = openHitung; $('#bInst').onclick = pasang;
   $('#nOut').onclick = async () => { await sb.auth.signOut(); boot(); };
   const gq = $('#gq'), res = $('#gres');
@@ -256,7 +263,8 @@ function ketOtomatis(r) {
 const sakS = (kg, k) => String(Math.round(kg / berat(k) * 10) / 10).replace('.', ',');
 const bfList = id => S.bf.filter(x => x.id_data === id).sort((a, b) => String(a.tanggal_waktu).localeCompare(String(b.tanggal_waktu)));
 const biBlock = r => { const L = bfList(r.id_data); if (!L.length) return '';
-  return `<div class="nb bad"><b>Belum input</b> <span class="mut">(sudah diambil, belum diinput di aplikasi resmi)</span>${L.map(x => `<div class="pick"><span><b>${tglJam(x.tanggal_waktu)}</b> · ${KODE.filter(k => +x[k]).map(k => NAMA[k] + ' ' + n(x[k]) + ' kg').join(', ')}</span></div>`).join('')}</div>`; };
+  return `<div class="nb bad"><b>Belum input</b> <span class="mut">(sudah diambil, belum diinput di aplikasi resmi)</span>${L.map(bfItem).join('')}</div>`; };
+const bfItem = x => `<div class="pick"><span><b>${tglJam(x.tanggal_waktu)}</b> · ${KODE.filter(k => +x[k]).map(k => NAMA[k] + ' ' + n(x[k]) + ' kg').join(', ')}${x.keterangan ? ` <span class="mut">(${esc(x.keterangan)})</span>` : ''}</span><span class="rab"><button class="btn xs" data-bfed="${esc(x.id_blmfoto)}" title="Ubah">${I.edit}</button><button class="btn xs bad" data-bfdel="${esc(x.id_blmfoto)}" title="Hapus">${I.trash}</button></span></div>`;
 const baBlock = (o, note) => { const ba = KODE.filter(k => o[k] > 0).map(k => `${NAMA[k]} ${n(o[k])} kg (${n(sak(o[k], berat(k)))} sak)`); return ba.length ? `<div class="nb warn"><b>Belum diambil</b>: ${esc(ba.join(', '))}${note ? `<div class="mut">${note}</div>` : ''}</div>` : ''; };
 function saleDetail(no, r) {
   const s = S.sale[no]; if (!s) return '';
@@ -310,7 +318,7 @@ function groupHtml(key, recs) {
   const open = F.open.has(key), p0 = recs[0];
   const pok = [...byPok(recs)];
   const flags = (recs.some(r => sum(r.ba) > 0) ? '<span class="tag warn">belum ambil</span> ' : '') + (recs.some(r => sum(r.bi) > 0) ? '<span class="tag bad">belum input</span> ' : '');
-  const line2 = `${esc(p0.nik || '-')} – ${pok.map(([nm]) => esc(nm)).join(' – ')}`;
+  const line2 = `${esc(p0.nik || '-')}${p0.nik ? `<button class="cpy" data-copynik="${esc(p0.nik)}" title="Salin NIK">${I.copy}</button>` : ''} – ${pok.map(([nm]) => esc(nm)).join(' – ')}`;
   const line3 = [ttl(p0), p0.alamat].filter(Boolean).map(esc).join(' – ');
   let body = '';
   if (open) {
@@ -409,7 +417,8 @@ function belum(el) {
     body = `<p class="mut sm">Petani yang sudah mengambil barang tetapi belum diinput di aplikasi pupuk resmi. Saat penjualannya diinput, centang "Sudah mengambil sebelum diinput" agar otomatis pindah.</p>
     <div class="bar"><button class="btn sm pri" id="biAdd">${I.plus} Catat ambil sebelum input</button></div>
     <div class="card list">${r.map(p => `<div class="li" data-pid="${p.id_data}"><div class="av">${esc(ini(p.nama))}</div><div class="grow"><div class="t b">${esc(p.nama)} <span class="mut sm">· ${esc(p.komoditas)} · ${esc(p.poktan)}</span></div>
-      <div class="sm">${KODE.filter(k => p.bi[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(p.bi[k])}</b> kg <span class="mut">(${n(sak(p.bi[k], berat(k)))} sak)</span></span>`).join(' &nbsp; ')}</div></div>
+      <div class="sm">${KODE.filter(k => p.bi[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(p.bi[k])}</b> kg <span class="mut">(${n(sak(p.bi[k], berat(k)))} sak)</span></span>`).join(' &nbsp; ')}</div>
+      <div class="sm bfl">${bfList(p.id_data).map(bfItem).join('')}</div></div>
       <button class="btn sm pri" data-jual="${p.id_data}">${I.plus} Input</button></div>`).join('') || '<span class="ok">Tidak ada, semuanya sudah diinput.</span>'}</div>`;
   }
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Belum ambil / belum input</h2></div>

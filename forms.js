@@ -255,8 +255,19 @@ export async function hapusSale(no) {
   const s = S.sale[no]; if (!s || !isAdmin()) return false;
   const brg = KODE.filter(k => s.in[k]).map(k => `${NAMA[k]} ${n(s.in[k])} kg`).join(', ');
   if (!confirm(`Hapus penjualan ${no}?\n${s.nama_petani} · ${tglJam(s.tanggal_waktu)}\n${brg} · ${rp(s.total_harga)}\n\nRencana dan catatan pengambilannya ikut terhapus. Tidak bisa dibatalkan.`)) return false;
+  const picks = s.picks.filter(x => KODE.some(k => +x[k]));
+  let balik = false;
+  if (picks.length) {
+    const ring = picks.map(x => `${tglJam(x.tanggal_waktu)}: ${KODE.filter(k => +x[k]).map(k => NAMA[k] + ' ' + n(x[k]) + ' kg').join(', ')}`).join('\n');
+    balik = confirm(`Nota ini punya catatan pengambilan:\n${ring}\n\nKembalikan ke daftar BELUM INPUT? (barangnya memang sudah dibawa petani)\n\nOK = kembalikan ke belum input\nBatal = ikut dihapus`);
+  }
+  if (balik) {
+    const p = S.pid[s.id_data] || {};
+    const rows = picks.map(x => ({ id_blmfoto: uid() + uid().slice(0, 2), tahun: s.tahun || p.tahun || S.tahun, tanggal_waktu: x.tanggal_waktu, id_data: s.id_data, nama_petani: s.nama_petani, nik: s.nik, nama_poktan: s.nama_poktan, komoditas: s.komoditas, keterangan: 'dari nota terhapus ' + no, urea: +x.urea || 0, phonska: +x.phonska || 0, organik: +x.organik || 0, za: +x.za || 0 }));
+    const { error } = await sb.from('blum_foto').insert(rows); if (error) { toast('Gagal mengembalikan: ' + error.message); return false; }
+  }
   for (const t of ['keluar_gudang', 'diambil', 'detail', 'penjualan']) { const { error } = await sb.from(t).delete().eq('no_pesanan', no); if (error) { toast(error.message); return false; } }
-  toast('Penjualan dihapus'); await done(); return true;
+  toast(balik ? 'Penjualan dihapus, pengambilan kembali ke belum input' : 'Penjualan dihapus'); await done(); return true;
 }
 export function openAmbil(no) {
   if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
@@ -282,27 +293,42 @@ export function openAmbil(no) {
 }
 
 // ===== ambil sebelum diinput (Blum Foto) =====
-export function openBelumInput(rec) {
+export function openBelumInput(rec, bf) {
   if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
-  let cur = rec || null;
+  let cur = bf ? S.pid[bf.id_data] : (rec || null);
+  const ed = !!bf;
+  const sesama = () => cur ? (S.byNik[cur.nik || 'id' + cur.id_data] || [cur]) : [];
   const body = () => !cur ? `<div class="fld"><label>Petani</label>${pickerHtml('bPk')}</div>` : `${ringkasPetani(cur)}
-    <div class="fld"><label>Tanggal & jam</label><input class="in" id="bTg" type="datetime-local" value="${dtLocal()}"></div>
-    <div class="row2">${KODE.map(k => `<div class="fld c-${k}"><label><i class="dot"></i>${NAMA[k]} (kg)</label><input class="in" type="number" inputmode="decimal" min="0" data-b="${k}"></div>`).join('')}</div>
-    <div class="fld"><label>Keterangan</label><input class="in" id="bKet"></div>`;
-  const wire = d => { if (!cur) wirePicker(d, 'bPk', p => { cur = p; $('.bd', d).innerHTML = body(); wire(d); $('#bS', d).disabled = false; }); };
+    ${sesama().length > 1 ? `<div class="fld"><label>Komoditas / poktan</label><select class="in" id="bRec">${sesama().map(p => `<option value="${p.id_data}" ${p.id_data === cur.id_data ? 'selected' : ''}>${esc(p.komoditas || '-')} · ${esc(p.poktan || '-')}</option>`).join('')}</select></div>` : ''}
+    <div class="fld"><label>Tanggal & jam</label><input class="in" id="bTg" type="datetime-local" value="${dtLocal(ed ? bf.tanggal_waktu : new Date())}"></div>
+    <div class="row2">${KODE.map(k => `<div class="fld c-${k}" data-k="${k}"><label><i class="dot"></i>${NAMA[k]} (kg)</label><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-b="${k}" value="${ed && +bf[k] ? +bf[k] : ''}">${STP}</span></div>`).join('')}</div>
+    <div class="fld"><label>Keterangan</label><input class="in" id="bKet" value="${esc(ed ? bf.keterangan || '' : '')}"></div>`;
+  const wire = d => {
+    if (!cur) return wirePicker(d, 'bPk', p => { cur = p; $('.bd', d).innerHTML = body(); wire(d); $('#bS', d).disabled = false; });
+    const sr = $('#bRec', d); if (sr) sr.onchange = () => { cur = S.pid[sr.value]; };
+  };
   openDrawer(body(), {
-    title: 'Ambil sebelum input', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="bS">Simpan</button>',
+    title: ed ? 'Ubah belum input' : 'Ambil sebelum input', footer: (ed ? '<button class="btn bad" id="bDel">Hapus</button><span class="sp"></span>' : '') + '<button class="btn" data-close>Batal</button><button class="btn pri" id="bS">Simpan</button>',
     onOpen: d => {
       wire(d); $('#bS', d).disabled = !cur;
+      const dl = $('#bDel', d); if (dl) dl.onclick = async () => { if (await hapusBf(bf.id_blmfoto)) closeDrawer(); };
       $('#bS', d).onclick = async () => {
-        const r = { id_blmfoto: uid() + uid().slice(0, 2), tahun: cur.tahun, tanggal_waktu: fromLocal($('#bTg', d).value), id_data: cur.id_data, nama_petani: cur.nama, nik: cur.nik, nama_poktan: cur.poktan, komoditas: cur.komoditas, keterangan: $('#bKet', d).value || null, ...z() };
+        const r = { tanggal_waktu: fromLocal($('#bTg', d).value), id_data: cur.id_data, nama_petani: cur.nama, nik: cur.nik, nama_poktan: cur.poktan, komoditas: cur.komoditas, keterangan: $('#bKet', d).value || null, ...z() };
         let any = false; $$('[data-b]', d).forEach(i => { const v = Number(i.value) || 0; r[i.dataset.b] = v; if (v > 0) any = true; });
         if (!any) return toast('Isi jumlah');
-        const { error } = await sb.from('blum_foto').insert(r); if (error) return toast('Gagal: ' + error.message);
-        toast('Tercatat'); closeDrawer(); await done();
+        const { error } = ed ? await sb.from('blum_foto').update(r).eq('id_blmfoto', bf.id_blmfoto) : await sb.from('blum_foto').insert({ id_blmfoto: uid() + uid().slice(0, 2), tahun: cur.tahun, ...r });
+        if (error) return toast('Gagal: ' + error.message);
+        toast(ed ? 'Tersimpan' : 'Tercatat'); closeDrawer(); await done();
       };
     },
   });
+}
+export async function hapusBf(id) {
+  const b = S.bf.find(x => x.id_blmfoto === id); if (!b || !isAdmin()) return false;
+  const brg = KODE.filter(k => +b[k]).map(k => `${NAMA[k]} ${n(b[k])} kg`).join(', ');
+  if (!confirm(`Hapus catatan belum input?\n${b.nama_petani} · ${b.komoditas || ''} · ${tglJam(b.tanggal_waktu)}\n${brg}\n\nTidak bisa dibatalkan.`)) return false;
+  const { error } = await sb.from('blum_foto').delete().eq('id_blmfoto', id); if (error) { toast(error.message); return false; }
+  toast('Dihapus'); await done(); return true;
 }
 
 // ===== ubah DPT & realisasi DPT per poktan =====
