@@ -1,4 +1,4 @@
-import { $, $$, esc, n, rp, KODE, NAMA, tgl, tglJam, ini, pct, uid, toast, I, lsGet, lsSet, debounce, tglWIB, sak } from './util.js';
+import { $, $$, esc, n, rp, KODE, NAMA, tgl, tglJam, ini, pct, uid, toast, I, lsGet, lsSet, debounce, tglWIB, sak, jam, dtLocal, fromLocal } from './util.js';
 import { sb, S, loadProfile, loadAll, reloadTx, loadTahun, isMgr, isAdmin, all, ringkasHariIni, totalBelum, stokProduk, perPoktan, penjualan14Hari, sum, z } from './data.js';
 import { hooks, nav, openDrawer, closeDrawer, isDrawerOpen, barHtml, lbar, berat, kgSak } from './ui.js';
 import { openJual, openSale, openAmbil, openBelumInput, openPetaniForm, openDptForm, cetakNota, openHitung } from './forms.js';
@@ -428,7 +428,7 @@ function gudang(el) {
   const row = (l, v, k, cls = '') => `<tr><td>${l}</td><td class="num ${cls}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(k)))} sak</td></tr>`;
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2>${isMgr() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
     <div class="grid g2">${st.map(x => { const R = (l, v, c = '', ind = 0) => `<tr><td style="padding-left:${ind * 10}px">${l}</td><td class="num ${c}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(x.k)))} sak</td></tr>`, H = t => `<tr><td colspan="3" class="b" style="padding-top:8px;color:var(--ac)">${t}</td></tr>`;
-      return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between"><b><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}</div>
+      return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b style="flex:1"><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}${isMgr() ? `<button class="btn ic xs" data-gb="${x.k}" title="Ubah stok gudang belakang">${I.gdg}</button>` : ''}</div>
       <table class="dn" style="margin-top:4px">${H('STOK AWAL')}${R('Gudang', x.awal, '', 1)}${R('i-pubers', x.awalIp, '', 1)}${R('Selisih (gudang − i-pubers)', x.awal - x.awalIp, x.awal - x.awalIp < 0 ? 'bad' : '', 1)}
       ${H('MASUK')}${R('Dari distributor', x.masuk, '', 1)}${R('Dari luar', x.lkIn, '', 1)}${R('Jumlah masuk', x.masuk + x.lkIn, 'b', 1)}
       ${H('KELUAR')}${R('Ke petani — sudah foto', x.ambil, '', 1)}${R('Ke petani — belum foto', x.bi, '', 1)}${R('Jumlah ke petani', x.ambil + x.bi, '', 1)}${R('Ke luar', x.lkOut, '', 1)}${R('Jumlah keluar', x.ambil + x.bi + x.lkOut, 'b', 1)}
@@ -439,8 +439,29 @@ function gudang(el) {
     ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
       <div class="dokb">${docBtn(s, 'bast', 'BAST')}${docBtn(s, 'nota', 'Nota')}</div></td></tr>`).join('')}</table></div></div>`;
   const t = $('#terima'); if (t) t.onclick = terimaBarang;
+  $$('[data-gb]', el).forEach(b => b.onclick = () => formGudangBelakang(st.find(x => x.k === b.dataset.gb)));
   $$('[data-dopen]', el).forEach(b => b.onclick = () => bukaBerkas(b.dataset.dopen));
   $$('input[data-dup]', el).forEach(i => i.onchange = async () => { const [id, k] = i.dataset.dup.split('|'); if (!i.files[0]) return; toast('Mengunggah…'); try { await unggahStok(id, k, i.files[0]); toast('Tersimpan'); gudang(el); } catch (e) { toast('Gagal: ' + (e.message || e)); } });
+}
+function formGudangBelakang(x) {
+  const b = berat(x.k), tot = x.fisik, bl0 = Number(x.pr.gudang_belakang) || 0;
+  openDrawer(`<p class="sm mut">Jumlah stok gudang dihitung otomatis dari barang masuk dan keluar. Isi stok yang ada di <b>gudang belakang</b>; gudang depan otomatis = jumlah − belakang.</p>
+    <div class="card" style="padding:10px"><div class="sdr"><span>Jumlah stok gudang</span><b>${n(sak(tot, b))} sak <span class="mut">(${n(tot)} kg)</span></b></div></div>
+    <div class="fld" style="margin-top:10px"><label>Gudang belakang (sak)</label><span class="nst"><input class="in b" id="gbS" type="number" inputmode="decimal" min="0" value="${bl0}"><span class="stp"><button type="button" class="btn" data-gs="1">▲</button><button type="button" class="btn" data-gs="-1">▼</button></span></span><span class="sm mut" id="gbKg"></span></div>
+    <div class="card" style="padding:10px"><div class="sdr"><span>Gudang depan (otomatis)</span><b id="gbD"></b></div></div>`,
+    {
+      title: 'Gudang belakang · ' + NAMA[x.k], footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="gbOk">Simpan</button>', onOpen: d => {
+        const i = $('#gbS', d);
+        const upd = () => { const v = Number(i.value) || 0, dep = tot - v * b; $('#gbKg', d).textContent = n(v * b) + ' kg'; $('#gbD', d).innerHTML = `<span class="${dep < 0 ? 'bad' : ''}">${n(sak(dep, b))} sak</span> <span class="mut">(${n(dep)} kg)</span>`; };
+        i.oninput = upd; $$('[data-gs]', d).forEach(t => t.onclick = () => { i.value = Math.max(0, (Number(i.value) || 0) + Number(t.dataset.gs)); upd(); }); upd();
+        $('#gbOk', d).onclick = async () => {
+          const v = Number(i.value) || 0; if (v < 0) return toast('Tidak boleh minus');
+          if (v * b > tot && !confirm('Gudang belakang melebihi jumlah stok gudang (gudang depan jadi minus). Tetap simpan?')) return;
+          const { error } = await sb.from('produk').update({ gudang_belakang: v }).eq('id', x.pr.id); if (error) return toast(error.message);
+          x.pr.gudang_belakang = v; toast('Tersimpan'); closeDrawer(); render(true);
+        };
+      }
+    });
 }
 function terimaBarang() {
   openDrawer(`<div class="fld"><label>Produk</label><select class="in" id="tP">${KODE.map(k => S.byKode[k]).map(p => `<option value="${p.id}">${esc(p.nama)}</option>`).join('')}</select></div>
@@ -467,32 +488,65 @@ function terimaBarang() {
 // ===== luar kelompok =====
 async function luar(el) {
   el.innerHTML = '<span class="mut">Memuat…</span>';
-  const ket = (det, idk, id) => det.filter(d => d[idk] === id).map(d => `${NAMA[S.byId[d.id_produk]?.kode] || ''} ${n(d.jumlah)}`).join(', ');
+  const ket = (det, idk, id) => det.filter(d => d[idk] === id).map(d => { const k = S.byId[d.id_produk]?.kode; return `${NAMA[k] || ''} ${n(sak(d.jumlah, berat(k)))} sak <span class="mut">(${n(d.jumlah)} kg)</span>`; }).join('<br>');
   const [lk, lkm] = [[...S.lkRaw || []], []];
   const lkH = [...S.lk], lkmH = [...S.lkm];
   lkH.sort((a, b) => String(b.tanggal_waktu).localeCompare(String(a.tanggal_waktu))); lkmH.sort((a, b) => String(b.tanggal_waktu).localeCompare(String(a.tanggal_waktu)));
-  const blok = (jud, hdr, det, idk, nm) => `<div class="sec"><h3>${jud}</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>${nm === 'pembeli' ? 'Pembeli' : 'Dari'}</th><th>Barang (kg)</th><th class="num">Total</th></tr>
-    ${hdr.map(h => `<tr><td>${tgl(h.tanggal_waktu)}</td><td>${esc(h[nm])}</td><td>${ket(det, idk, h[idk])}</td><td class="num">${rp(h.total_harga)}</td></tr>`).join('')}</table></div></div>`;
+  const blok = (jud, hdr, det, idk, nm) => `<div class="sec"><h3>${jud}</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>${nm === 'pembeli' ? 'Pembeli' : 'Dari'}</th><th>Barang</th><th class="num">Total</th></tr>
+    ${hdr.map(h => `<tr><td>${tgl(h.tanggal_waktu)}<div class="mut sm">${jam(h.tanggal_waktu)}</div></td><td>${esc(h[nm])}</td><td>${ket(det, idk, h[idk])}</td><td class="num">${rp(h.total_harga)}</td></tr>`).join('')}</table></div></div>`;
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Luar kelompok</h2><button class="btn pri" id="lkJ">${I.plus} Jual luar</button>${isMgr() ? `<button class="btn" id="lkM">${I.plus} Terima dari luar</button>` : ''}</div>
     <div class="grid g4">${kpi('Penjualan luar', rp(S.dlk.reduce((a, b) => a + Number(b.subtotal), 0)), I.out, n(lkH.length) + ' transaksi')}${kpi('Barang masuk dari luar', rp(S.dlm.reduce((a, b) => a + Number(b.subtotal), 0)), I.truck, n(lkmH.length) + ' transaksi')}</div>
     ${blok('Penjualan luar kelompok', lkH, S.dlk, 'id_lk', 'pembeli')}${blok('Barang masuk dari luar', lkmH, S.dlm, 'id_lkm', 'dari')}`;
   $('#lkJ').onclick = () => formLK(true); const m = $('#lkM'); if (m) m.onclick = () => formLK(false);
 }
 function formLK(keluar) {
-  const prods = KODE.map(k => S.byKode[k]);
-  openDrawer(`<div class="fld"><label>${keluar ? 'Pembeli' : 'Dari'}</label><input class="in" id="lN"></div>
-    ${prods.map(p => `<div class="card c-${p.kode}" style="margin-bottom:8px;padding:9px" data-p="${p.id}"><b><i class="dot"></i>${NAMA[p.kode]}</b><div class="row2"><div class="fld"><label>Jumlah (kg)</label><input class="in" type="number" inputmode="decimal" data-f="j"></div><div class="fld"><label>Harga /kg</label><input class="in" type="number" inputmode="decimal" data-f="h" value="${keluar ? p.harga_luar : (p.hlm || '')}"></div></div></div>`).join('')}
+  const prods = KODE.map(k => S.byKode[k]).filter(Boolean);
+  const hSak = p => Math.round((Number(keluar ? p.harga_luar : p.hlm) || 0) * (Number(p.berat_sak) || 50)) || '';
+  openDrawer(`<div class="row2"><div class="fld"><label>Tanggal & jam</label><input class="in" id="lTg" type="datetime-local" value="${dtLocal(new Date())}"></div>
+    <div class="fld ac"><label>${keluar ? 'Pembeli' : 'Dari'}</label><input class="in" id="lN" autocomplete="off" placeholder="ketik / pilih"><div class="acl hide" id="lNl"></div></div></div>
+    ${prods.map(p => `<div class="card c-${p.kode}" style="margin-bottom:8px;padding:9px" data-p="${p.id}" data-k="${p.kode}"><b><i class="dot"></i>${NAMA[p.kode]}</b> <span class="mut sm">(1 sak = ${n(p.berat_sak)} kg)</span>
+      <div class="row2"><div class="fld"><label>Jumlah (sak)</label><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="j"><span class="stp"><button type="button" class="btn" data-ls="1">▲</button><button type="button" class="btn" data-ls="-1">▼</button></span></span><span class="sm mut" data-o="kg"></span></div>
+      <div class="fld"><label>Harga / sak (Rp)</label><input class="in" type="number" inputmode="decimal" data-f="h" value="${hSak(p)}"><span class="sm mut" data-o="hkg"></span></div></div><div class="sm r" data-o="sub"></div></div>`).join('')}
     <div class="fld"><label>Keterangan</label><input class="in" id="lK"></div><div class="card" style="display:flex;justify-content:space-between"><span class="mut">Total</span><b id="lT">Rp 0</b></div>`,
     {
-      title: keluar ? 'Jual luar kelompok' : 'Terima dari luar', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="lS">Simpan</button>', onOpen: d => {
-        const calc = () => { let t = 0; $$('[data-p]', d).forEach(c => t += (Number($('[data-f=j]', c).value) || 0) * (Number($('[data-f=h]', c).value) || 0)); $('#lT', d).textContent = rp(t); return t; };
-        $$('input', d).forEach(i => i.oninput = calc);
+      title: keluar ? 'Jual luar kelompok' : 'Terima dari luar', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="lS">Simpan</button>', onOpen: async d => {
+        const calc = () => {
+          let t = 0;
+          $$('[data-p]', d).forEach(c => {
+            const b = Number(S.byId[c.dataset.p].berat_sak) || 50, j = Number($('[data-f=j]', c).value) || 0, h = Number($('[data-f=h]', c).value) || 0;
+            $('[data-o=kg]', c).textContent = j ? `= ${n(j * b)} kg` : '';
+            $('[data-o=hkg]', c).textContent = h ? `= ${rp(h / b)} /kg` : '';
+            $('[data-o=sub]', c).innerHTML = j && h ? `Subtotal <b>${rp(j * h)}</b>` : '';
+            t += j * h;
+          });
+          $('#lT', d).textContent = rp(t); return t;
+        };
+        $$('input', d).forEach(i => i.addEventListener('input', calc));
+        $$('[data-ls]', d).forEach(t => t.onclick = () => { const i = t.closest('.nst').querySelector('input'); i.value = Math.max(0, (Number(i.value) || 0) + Number(t.dataset.ls)) || ''; calc(); });
+        calc();
+        // daftar nama yang pernah diisi (semua tahun) -> popup kecil di bawah kolom
+        const inp = $('#lN', d), box = $('#lNl', d); let names = [];
+        try {
+          const { data } = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').select(keluar ? 'pembeli' : 'dari').limit(5000);
+          const cnt = {}; (data || []).forEach(r => { const v = (r.pembeli || r.dari || '').trim(); if (v) cnt[v] = (cnt[v] || 0) + 1; });
+          names = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a.localeCompare(b));
+        } catch { }
+        const show = () => {
+          const q = inp.value.trim().toLowerCase(); const L = names.filter(x => !q || x.toLowerCase().includes(q)).slice(0, 8);
+          if (!L.length || (L.length === 1 && L[0].toLowerCase() === q)) return box.classList.add('hide');
+          box.innerHTML = L.map(x => `<div class="aci">${esc(x)}</div>`).join(''); box.classList.remove('hide');
+          $$('.aci', box).forEach((e, i) => e.onmousedown = ev => { ev.preventDefault(); inp.value = L[i]; box.classList.add('hide'); });
+        };
+        inp.onfocus = show; inp.oninput = show; inp.onblur = () => setTimeout(() => box.classList.add('hide'), 150);
         $('#lS', d).onclick = async () => {
-          const nm = $('#lN', d).value.trim(), id = uid(), det = [];
-          $$('[data-p]', d).forEach(c => { const j = Number($('[data-f=j]', c).value) || 0, h = Number($('[data-f=h]', c).value) || 0, pr = S.byId[c.dataset.p]; if (j > 0) det.push({ id_produk: pr.id, nama_produk: pr.nama, jumlah: j, harga_satuan: h, subtotal: j * h, berat_sak: pr.berat_sak }); });
+          const nm = inp.value.trim(), id = uid(), det = [];
+          $$('[data-p]', d).forEach(c => {
+            const pr = S.byId[c.dataset.p], b = Number(pr.berat_sak) || 50, j = Number($('[data-f=j]', c).value) || 0, h = Number($('[data-f=h]', c).value) || 0;
+            if (j > 0) det.push({ id_produk: pr.id, nama_produk: pr.nama, jumlah: j * b, harga_satuan: h / b, subtotal: j * h, berat_sak: b });
+          });
           if (!nm || !det.length) return toast('Isi nama dan jumlah');
-          const tot = det.reduce((a, b) => a + b.subtotal, 0);
-          const hd = keluar ? { id_lk: id, tahun: S.tahun, pembeli: nm, total_harga: tot, keterangan: $('#lK', d).value || null } : { id_lkm: id, tahun: S.tahun, dari: nm, total_harga: tot, keterangan: $('#lK', d).value || null };
+          const tot = det.reduce((a, b) => a + b.subtotal, 0), tw = fromLocal($('#lTg', d).value) || new Date().toISOString();
+          const hd = keluar ? { id_lk: id, tahun: S.tahun, tanggal_waktu: tw, pembeli: nm, total_harga: tot, keterangan: $('#lK', d).value || null } : { id_lkm: id, tahun: S.tahun, tanggal_waktu: tw, dari: nm, total_harga: tot, keterangan: $('#lK', d).value || null };
           let r = await sb.from(keluar ? 'luar_kelompok' : 'lk_masuk').insert(hd); if (r.error) return toast(r.error.message);
           r = await sb.from(keluar ? 'detail_lk' : 'dlk_masuk').insert(det.map((x, i) => keluar ? { id_dlk: id + i, tahun: S.tahun, id_lk: id, pembeli: nm, ...x } : { id_dlkm: id + i, tahun: S.tahun, id_lkm: id, dari: nm, ...x }));
           if (r.error) return toast(r.error.message);
