@@ -298,20 +298,23 @@ function komHtml(r) {
       ${ket || r.keterangan ? `<div class="ket"><b>Keterangan:</b> ${esc(ket || r.keterangan)}</div>` : ''}
       <div class="rl"><button class="btn sm pri" data-jual="${r.id_data}">${I.plus} Jual</button><button class="btn sm" data-bi="${r.id_data}">${I.camera} Ambil sebelum input</button><button class="btn xs" data-edit="${r.id_data}" title="Ubah kuota / luas">${I.edit}</button></div></div>`;
   }
-  return `<div class="lv lv2 ${open ? 'open' : ''}"><div class="tap" data-tog="r:${r.id_data}"><span class="chev">›</span><b>${esc(r.komoditas || '-')}</b> <span class="kk">(${sakArr(r.ak).join(',')})</span><span class="mut">${luas(r.luas_lahan)} Ha</span><span class="sp"></span>${bi ? '<span class="tag bad">blm input</span>' : ''}${sum(r.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}</div>${body}</div>`;
+  return `<div class="lv lv2 ${open ? 'open' : ''}"><div class="tap" data-tog="r:${r.id_data}"><span class="chev">›</span><b>${esc(r.komoditas || '-')}</b> <span class="kk">(${sakArr(r.ak, isTebu(r)).join(',')})</span><span class="mut">${luas(r.luas_lahan)} Ha</span><span class="sp"></span>${bi ? '<span class="tag bad">blm input</span>' : ''}${sum(r.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}</div>${body}</div>`;
 }
 const luas = v => String(Math.round((+v || 0) * 100) / 100).replace('.', ',');
 const rnd1 = v => Math.round(v * 10) / 10;
-const sakArr = (o) => ['urea', 'phonska', 'organik'].map(k => rnd1((o[k] || 0) / berat(k)));
+const isTebu = r => /tebu/i.test(r?.komoditas || '');
+const sakArr = (o, n4) => (n4 ? ['urea', 'phonska', 'organik', 'za'] : ['urea', 'phonska', 'organik']).map(k => rnd1((o[k] || 0) / berat(k)));
 const parseDpt = t => (t || '').split(/[,;\s]+/).filter(x => x !== '').map(Number).filter(x => !isNaN(x));
 function dptInfo(rs) {
   const dpt = parseDpt([...new Set(rs.map(r => r.dpt).filter(Boolean))][0]);
   if (!dpt.length) return null;
-  const sum3 = rs.reduce((a, r) => a.map((v, i) => v + sakArr(r.ak)[i]), [0, 0, 0]).map(rnd1);
+  // Tebu rakyat (atau DPT berisi 4 angka): urea, phonska, organik, ZA
+  const n4 = rs.some(isTebu) || dpt.length > 3;
+  const sumN = rs.reduce((a, r) => a.map((v, i) => v + sakArr(r.ak, n4)[i]), n4 ? [0, 0, 0, 0] : [0, 0, 0]).map(rnd1);
   const manual = parseDpt(rs.map(r => r.dpt_realisasi).find(Boolean));
-  const real = manual.length ? manual : sum3;
+  const real = manual.length ? manual : sumN;
   const up = rnd1((dpt[0] || 0) + (dpt[1] || 0) - (real[0] || 0) - (real[1] || 0)), og = rnd1((dpt[2] || 0) - (real[2] || 0));
-  const sisa = [up, og]; if (dpt.length > 3) sisa.push(rnd1(dpt[3] - (real[3] || 0)));
+  const sisa = [up, og]; if (n4) sisa.push(rnd1((dpt[3] || 0) - (real[3] || 0)));
   return `(${dpt.join(',')} → ${real.join(',')} = ${sisa.join(',')})`;
 }
 function groupHtml(key, recs) {

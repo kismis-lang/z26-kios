@@ -335,11 +335,12 @@ export async function hapusBf(id) {
 export function openDptForm(nik, poktan) {
   if (!isAdmin()) return toast('Hanya admin yang bisa menambah / mengubah data');
   const rs = (S.byNik[nik] || []).filter(r => (r.poktan || '-') === poktan); if (!rs.length) return;
-  const auto = ['urea', 'phonska', 'organik'].map(k => Math.round(rs.reduce((a, r) => a + (r.ak[k] || 0), 0) / berat(k) * 10) / 10).join(',');
+  const tebu = rs.some(r => /tebu/i.test(r.komoditas || ''));
+  const auto = (tebu ? ['urea', 'phonska', 'organik', 'za'] : ['urea', 'phonska', 'organik']).map(k => Math.round(rs.reduce((a, r) => a + (r.ak[k] || 0), 0) / berat(k) * 10) / 10).join(',');
   openDrawer(`<div class="card" style="padding:9px"><b>${esc(rs[0].nama)}</b><div class="mut sm">${esc(poktan)} · ${rs.map(r => esc(r.komoditas)).join(', ')} · ${S.tahun}</div></div>
-    <div class="fld"><label>DPT (rencana dapat, dalam sak: urea, phonska, organik)</label><input class="in" id="dP" value="${esc(rs.find(r => r.dpt)?.dpt || '')}" placeholder="13,14,3" inputmode="text"></div>
+    <div class="fld"><label>DPT (rencana dapat, dalam sak: urea, phonska, organik${tebu ? ', ZA' : ''})</label><input class="in" id="dP" value="${esc(rs.find(r => r.dpt)?.dpt || '')}" placeholder="${tebu ? '0,43,2,4' : '13,14,3'}" inputmode="text"></div>
     <div class="fld"><label>Realisasi DPT (boleh berbeda, mis. urea ditukar phonska)</label><input class="in" id="dR" value="${esc(rs.find(r => r.dpt_realisasi)?.dpt_realisasi || '')}" placeholder="kosong = otomatis dari jumlah diambil (${auto})"></div>
-    <p class="mut sm">Urea dan phonska boleh saling tukar; organik dan ZA tidak. Sisa ditampilkan sebagai "(urea+phonska, organik)". Realisasi dikosongkan = dihitung otomatis dari jumlah yang sudah diambil di semua komoditas poktan ini.</p>`,
+    <p class="mut sm">Urea dan phonska boleh saling tukar; organik dan ZA tidak. Sisa ditampilkan sebagai "(urea+phonska, organik${tebu ? ', ZA' : ''})"${tebu ? '. Tebu rakyat memakai 4 angka: urea, phonska, organik, ZA (mis. 0,43,2,4)' : ''}. Realisasi dikosongkan = dihitung otomatis dari jumlah yang sudah diambil di semua komoditas poktan ini.</p>`,
     {
       title: 'Ubah DPT', footer: '<button class="btn" data-close>Batal</button><button class="btn pri" id="dS">Simpan</button>', onOpen: d => {
         $('#dS', d).onclick = async () => {
