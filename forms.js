@@ -62,6 +62,8 @@ export async function scanShot(file, onStatus) {
   } finally { await w.terminate(); }
 }
 
+// pindahkan status buka/tutup daftar riwayat ke nomor baru
+const F_OPEN_RENAME = (a, b) => { try { const o = hooks.fOpen; if (!o) return; for (const k of [...o]) if (k.endsWith(':' + a)) { o.delete(k); o.add(k.slice(0, k.length - a.length) + b); } } catch { } };
 // tombol panah naik/turun: +/- 1 sak (berat sak produk)
 const STP = '<span class="stp"><button type="button" class="btn" data-st="1" tabindex="-1" aria-label="Tambah 1 sak">▲</button><button type="button" class="btn" data-st="-1" tabindex="-1" aria-label="Kurangi 1 sak">▼</button></span>';
 document.addEventListener('click', e => {
@@ -96,7 +98,7 @@ export function openJual(rec, edit) {
     const row = (p, f, val, extra = '') => `<div class="jr c-${p.kode}" data-k="${p.kode}"><span class="jn"><i class="dot"></i>${NAMA[p.kode]}</span><span class="nst"><input class="in" type="number" inputmode="decimal" min="0" data-f="${f}" value="${val}">${STP}</span>${extra}<span class="jk mut sm" data-i="${f}"></span></div>`;
     const sec = (no, jud, sub, btn, rows) => `<div class="card js" style="margin-bottom:8px;padding:9px"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b>${no}. ${jud}</b>${btn}</div><div class="mut sm" style="margin-bottom:3px">${sub}</div>${rows}</div>`;
     return `${ringkasPetani(cur)}${sale ? '' : scanBar}
-    <div class="row2"><div class="fld"><label>No. pesanan (otomatis, boleh diubah)</label><input class="in b" id="jNo" placeholder="mis. S0CFJ1\\7002OW" value="${esc(sale?.no_pesanan || pend?.no || nextNo())}" ${sale ? 'readonly' : ''} autocomplete="off"></div>
+    <div class="row2"><div class="fld"><label>No. pesanan ${sale ? '(boleh diganti, harus unik)' : '(otomatis, boleh diubah)'}</label><input class="in b" id="jNo" placeholder="mis. S0CFJ1\\7002OW" value="${esc(sale?.no_pesanan || pend?.no || nextNo())}" autocomplete="off"></div>
     <div class="fld"><label>Tanggal & jam transaksi</label><input class="in" id="jTg" type="datetime-local" value="${pend?.tgl || dtLocal(sale?.tanggal_waktu || new Date())}"></div></div>
     ${!sale && bi > 0 ? `<label class="card" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;padding:9px"><input type="checkbox" id="jBi" ${picks.some(x => x.bf) ? 'checked' : ''}><span><b>Sudah mengambil sebelum diinput</b><br><span class="sm">${KODE.filter(k => cur.bi[k] > 0).map(k => `${NAMA[k]} ${n(cur.bi[k])} kg`).join(' · ')} — dimasukkan sebagai pengambilan (sesuai tanggal catatannya). Kalau jumlahnya dikurangi, sisanya tetap tercatat sebagai Belum input.</span></span></label>` : ''}
     ${P.length ? `${sec(1, 'Input (aplikasi resmi)', 'Jumlah yang diinput di aplikasi pupuk resmi. Mengurangi stok resmi dan kuota.', '', P.map(p => row(p, 'inp', sale ? sale.in[p.kode] || '' : (pend?.items?.[p.kode] || ''), `<button class="btn sm" data-q="sisa" title="Isi sisa kuota">Sisa</button>`)).join(''))}
@@ -182,7 +184,9 @@ export function openJual(rec, edit) {
     const d = $('#drawer'); if (!cur) return;
     const no = ($('#jNo', d).value || '').trim();
     if (!no) return toast('Isi no. pesanan dari aplikasi pupuk resmi');
-    if (!sale && S.sale[no]) return toast('No. pesanan ini sudah ada');
+    const ganti = sale && no !== sale.no_pesanan;
+    if ((!sale || ganti) && S.sale[no]) return toast('No. pesanan ' + no + ' sudah dipakai transaksi lain');
+    if (ganti && !confirm(`Ganti no. pesanan\n${sale.no_pesanan}\nmenjadi\n${no} ?\n\nRincian input, rencana, dan pengambilan ikut pindah ke nomor baru.`)) return;
     const items = [], pk = readPicks(d);
     for (const p of prods()) {
       const k = p.kode, v = { inp: val(d, k, 'inp'), rc: val(d, k, 'rc') }, amT = pk.reduce((a, x) => a + (x.am[k] || 0), 0);
@@ -205,6 +209,11 @@ export function openJual(rec, edit) {
       const pakai = z(); pk.filter(x => x.bf).forEach(x => KODE.forEach(k => pakai[k] += x.am[k] || 0));
       const s0 = z(); let ada = false; KODE.forEach(k => { s0[k] = Math.max(0, (cur.bi[k] || 0) - pakai[k]); if (s0[k] > 0) ada = true; });
       if (ada) sisaBi = s0;
+    }
+    if (ganti) {
+      const g = await sb.rpc('ganti_no_pesanan', { lama: sale.no_pesanan, baru: no });
+      if (g.error) { toast('Gagal ganti no. pesanan: ' + g.error.message); $$('#jSave,#jSavePrint').forEach(b => b.disabled = false); return; }
+      F_OPEN_RENAME(sale.no_pesanan, no);
     }
     const { error } = await sb.rpc(sale ? 'ubah_penjualan2' : 'simpan_penjualan2', { p });
     if (error) { toast('Gagal: ' + error.message); $$('#jSave,#jSavePrint').forEach(b => b.disabled = false); return; }

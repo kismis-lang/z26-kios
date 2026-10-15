@@ -141,7 +141,7 @@ function shell() {
     const v = e.target.value; if (v === 'new') { yrFill(); return openTahunBaru(); }
     S.tahun = Number(v); lsSet('tahun', v); F.open.clear(); await boot(true);
   };
-  hooks.refresh = () => render(true);
+  hooks.refresh = () => render(true); hooks.fOpen = F.open;
   hooks.openNik = nik => {
     F.q = ''; F.poktan = ''; F.kom = ''; F.st = '';
     for (const o of [...F.open]) if (S.byNik[o]) F.open.delete(o);       // hanya 1 petani terbuka
