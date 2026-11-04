@@ -19,7 +19,18 @@ export const sak = (kg, b = 50) => { const v = (Number(kg) || 0) / (Number(b) ||
 export const kgsak = (kg, b = 50) => `${n(kg)} kg (${n(sak(kg, b))} sak)`;
 const p2 = x => String(x).padStart(2, '0');
 export const dtLocal = (d = new Date()) => { const x = new Date(d); return `${x.getFullYear()}-${p2(x.getMonth() + 1)}-${p2(x.getDate())}T${p2(x.getHours())}:${p2(x.getMinutes())}`; };
-export const fromLocal = v => (v ? new Date(v).toISOString() : new Date().toISOString());
+// semua transaksi harus di tahun aktif: tahun salah ketik (mis. 0010) otomatis diganti tahun aktif
+let _thn = new Date().getFullYear();
+export const setTahunAktif = y => { _thn = Number(y) || _thn; };
+export const fromLocal = v => {
+  if (!v) return new Date().toISOString();
+  const s = String(v).replace(/^\d{1,6}(?=-)/, String(_thn));
+  const t = new Date(s); return isNaN(t) ? new Date().toISOString() : t.toISOString();
+};
+// batasi pilihan tanggal di kalender HP ke tahun aktif
+if (typeof document !== 'undefined') document.addEventListener('focusin', e => {
+  const el = e.target; if (el && el.type === 'datetime-local') { el.min = `${_thn}-01-01T00:00`; el.max = `${_thn}-12-31T23:59`; }
+}, true);
 export const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 8) : Math.random().toString(16).slice(2, 10));
 export const pct = (a, b) => b > 0 ? Math.max(0, Math.min(100, a / b * 100)) : 0;
 export const debounce = (f, ms = 180) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; };

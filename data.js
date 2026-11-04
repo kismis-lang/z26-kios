@@ -1,5 +1,5 @@
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
-import { KODE, tglWIB } from './util.js';
+import { KODE, tglWIB, setTahunAktif } from './util.js';
 
 export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -41,6 +41,7 @@ export async function loadTahun() {
   S.tahunList = [...new Set([...r.map(x => x.tahun), S.tahun])].sort((a, b) => b - a);
 }
 export async function loadAll() {
+  setTahunAktif(S.tahun);
   await loadTahun();
   const [produk, set, petani, pen, det, amb, kg, bf, stok, dlk, dlm, lk, lkm] = await Promise.all([
     all('produk', '*', 'id'), all('pengaturan', '*', 'kunci'),
