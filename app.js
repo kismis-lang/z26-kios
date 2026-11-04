@@ -185,7 +185,8 @@ function beranda(el) {
   const lines = (o, empty = '-') => { const L = AK.filter(k => o[k]); return L.length ? L.map(k => `<div class="kl c-${k}"><i class="dot"></i>${NAMA[k]} ${ks(o[k], k)}</div>`).join('') : `<div class="mut sm">${empty}</div>`; };
   // daftar petani per NIK (gabung komoditas)
   const perNik = f => { const m = {}; S.petani.forEach(p => { const v = f(p); if (!sum(v)) return; const key = p.nik || 'id' + p.id_data; const o = m[key] ||= { key, nama: p.nama, pok: new Set(), v: z() }; o.pok.add(p.poktan); KODE.forEach(k => o.v[k] += v[k]); }); return Object.values(m).sort((a, b) => sum(b.v) - sum(a.v)); };
-  const baL = perNik(p => p.ba), biL = perNik(p => p.bi);
+  const tanpaOrg = o => ({ ...o, organik: 0 });
+  const baL = perNik(p => tanpaOrg(p.ba)), biL = perNik(p => tanpaOrg(p.bi));
   const pList = (L, go) => L.slice(0, 6).map(o => `<div class="bl" data-nik="${esc(o.key)}"><span class="grow t"><b>${esc(o.nama)}</b> <span class="mut sm">${esc([...o.pok].join(', '))}</span></span><span class="sm r">${AK.filter(k => o.v[k]).map(k => `<span class="c-${k}"><i class="dot"></i>${n(sak(o.v[k], berat(k)))}</span>`).join(' ')} <span class="mut">sak</span></span></div>`).join('') + (L.length > 6 ? `<div class="r"><button class="btn sm" data-go="${go}">Semua ${L.length} petani ›</button></div>` : '');
   const sel = st.filter(x => AK.includes(x.k));
   el.innerHTML = `
@@ -200,16 +201,16 @@ function beranda(el) {
     ${h.list.length ? `<div class="list" style="margin-top:6px">${h.list.slice(0, 6).map(saleRow).join('')}</div>` : ''}</div>
 
   <div class="grid g2" style="margin-top:12px">
-    <div class="card"><div class="sec" style="margin-top:0"><h3><span class="warn">●</span> Belum ambil <span class="mut sm">titipan petani di gudang</span></h3><button class="btn sm" data-go="belum:ba">${b.nBa} nota ›</button></div>
-      <div class="kls">${lines(b.ba, 'tidak ada')}</div>${baL.length ? `<div class="bls">${pList(baL, 'belum:ba')}</div>` : ''}</div>
-    <div class="card"><div class="sec" style="margin-top:0"><h3><span class="bad">●</span> Belum input <span class="mut sm">sudah diambil, belum diinput</span></h3><button class="btn sm" data-go="belum:bi">${b.nBi} petani ›</button></div>
-      <div class="kls">${lines(b.bi, 'tidak ada')}</div>${biL.length ? `<div class="bls">${pList(biL, 'belum:bi')}</div>` : ''}</div>
+    <div class="card"><div class="sec" style="margin-top:0"><h3><span class="warn">●</span> Belum ambil <span class="mut sm">titipan petani di gudang</span></h3><button class="btn sm" data-go="belum:ba">${S.pen.filter(s => sum(tanpaOrg(s.ba)) > 0).length} nota ›</button></div>
+      <div class="kls">${lines(tanpaOrg(b.ba), 'tidak ada')}</div>${baL.length ? `<div class="bls">${pList(baL, 'belum:ba')}</div>` : ''}</div>
+    <div class="card"><div class="sec" style="margin-top:0"><h3><span class="bad">●</span> Belum input <span class="mut sm">sudah diambil, belum diinput</span></h3><button class="btn sm" data-go="belum:bi">${biL.length} petani ›</button></div>
+      <div class="kls">${lines(tanpaOrg(b.bi), 'tidak ada')}</div>${biL.length ? `<div class="bls">${pList(biL, 'belum:bi')}</div>` : ''}</div>
   </div>
 
   <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Stok</h3><button class="btn sm" data-go="gudang">Gudang ›</button></div>
-    <div class="tw"><table class="dn bt"><tr><th>Pupuk</th><th class="num">Gudang</th><th class="num">i-pubers</th><th class="num">Blm ambil</th><th class="num">Lebih/kurang</th></tr>
-    ${sel.map(x => `<tr class="c-${x.k}"><td><i class="dot"></i>${NAMA[x.k]}${x.fisik < batas && x.masuk > 0 ? ' <span class="tag bad">menipis</span>' : ''}</td><td class="num">${n(x.fisik)}<div class="mut">${n(sak(x.fisik, berat(x.k)))} sak</div></td><td class="num">${n(x.sistem)}<div class="mut">${n(sak(x.sistem, berat(x.k)))} sak</div></td><td class="num">${n(x.titip)}<div class="mut">${n(sak(x.titip, berat(x.k)))} sak</div></td><td class="num b ${x.lebih < 0 ? 'bad' : 'ok'}">${n(x.lebih)}<div class="mut">${n(sak(x.lebih, berat(x.k)))} sak</div></td></tr>`).join('')}</table></div>
-    <div class="mut sm">kg; lebih/kurang = gudang − i-pubers − belum ambil</div></div>
+    <div class="tw"><table class="dn bt"><tr><th>Pupuk</th><th class="num">Gudang</th><th class="num">i-pubers</th><th class="num">Selisih</th><th class="num">Lebih/kurang</th></tr>
+    ${sel.map(x => `<tr class="c-${x.k}"><td><i class="dot"></i>${NAMA[x.k]}${x.fisik < batas && x.masuk > 0 ? ' <span class="tag bad">menipis</span>' : ''}</td><td class="num">${n(x.fisik)}<div class="mut">${n(sak(x.fisik, berat(x.k)))} sak</div></td><td class="num">${n(x.sistem)}<div class="mut">${n(sak(x.sistem, berat(x.k)))} sak</div></td><td class="num ${x.selisih < 0 ? 'bad' : ''}">${n(x.selisih)}<div class="mut">${n(sak(x.selisih, berat(x.k)))} sak</div></td><td class="num b ${x.lebih < 0 ? 'bad' : 'ok'}">${n(x.lebih)}<div class="mut">${n(sak(x.lebih, berat(x.k)))} sak</div></td></tr>`).join('')}</table></div>
+    <div class="mut sm">kg; selisih = gudang − i-pubers; lebih/kurang = selisih − belum ambil</div></div>
 
   <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Penyaluran kuota ${S.tahun}</h3><button class="btn sm" data-go="poktan">Poktan ›</button></div>
     ${AK.filter(k => tot.q[k] || tot.in[k]).map(k => `<div class="prow c-${k}"><div class="h"><span><i class="dot"></i><b>${NAMA[k]}</b></span><span><b>${n(tot.in[k])}</b> / ${n(tot.q[k])} kg <span class="mut">(${pct(tot.in[k], tot.q[k]).toFixed(1)}%)</span></span></div><div class="pg"><i style="width:${pct(tot.in[k], tot.q[k])}%"></i></div>
@@ -337,7 +338,9 @@ function petani(el) {
   const poktans = [...new Set(S.petani.map(p => p.poktan).filter(Boolean))].sort(), koms = [...new Set(S.petani.map(p => p.komoditas).filter(Boolean))].sort();
   const q = F.q.toLowerCase();
   let groups = Object.entries(S.byNik).filter(([k, rs]) => rs.some(p => (!q || (p.nama || '').toLowerCase().includes(q) || (p.nik || '').includes(q)) && (!F.poktan || p.poktan === F.poktan) && (!F.kom || p.komoditas === F.kom)));
-  const stF = { ba: p => sum(p.ba) > 0, bi: p => sum(p.bi) > 0, sisa: p => KODE.some(k => p.sisa[k] > 0), belum: p => sum(p.in) === 0 }[F.st];
+  const PK = F.pk === 'urea' ? ['urea'] : F.pk === 'phonska' ? ['phonska'] : ['urea', 'phonska'];   // kriteria hanya urea & phonska
+  const ad = o => PK.some(k => o[k] > 0);
+  const stF = { ba: p => ad(p.ba), bi: p => ad(p.bi), sisa: p => ad(p.sisa), belum: p => PK.some(k => p.q[k] > 0) && PK.every(k => !(p.in[k] > 0)) }[F.st];
   if (stF) groups = groups.filter(([k, rs]) => rs.some(stF));
   groups.sort((a, b) => a[1][0].nama.localeCompare(b[1][0].nama));
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Petani <span class="mut sm">${n(groups.length)} NIK</span></h2>
@@ -345,12 +348,14 @@ function petani(el) {
     <div class="bar"><input class="in sm-in" style="max-width:220px" id="fq" placeholder="Filter nama / NIK" value="${esc(F.q)}">
       <select class="in sm-in" style="width:auto" id="fp"><option value="">Semua poktan</option>${poktans.map(x => `<option ${x === F.poktan ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
       <select class="in sm-in" style="width:auto" id="fk"><option value="">Semua komoditas</option>${koms.map(x => `<option ${x === F.kom ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
-    <div class="bar">${[['', 'Semua'], ['ba', 'Belum ambil'], ['bi', 'Belum input'], ['sisa', 'Masih ada kuota'], ['belum', 'Belum ada input']].map(([k, l]) => `<span class="chip ${F.st === k ? 'on' : ''}" data-st="${k}">${l}</span>`).join('')}</div>
+    <div class="bar">${[['', 'Semua'], ['ba', 'Belum ambil'], ['bi', 'Belum input'], ['sisa', 'Masih ada kuota'], ['belum', 'Belum ada input']].map(([k, l]) => `<span class="chip ${F.st === k ? 'on' : ''}" data-st="${k}">${l}</span>`).join('')}
+      ${F.st ? `<select class="in sm-in" style="width:auto" id="fpk">${[['', 'Urea + Phonska'], ['urea', 'Urea saja'], ['phonska', 'Phonska saja']].map(([v, l]) => `<option value="${v}" ${(F.pk || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}</div>
     <div class="card list dense" id="glist" style="padding:4px 8px">${groups.slice(0, F.lim).map(([k, rs]) => groupHtml(k, rs)).join('') || '<span class="mut">Tidak ada data</span>'}
     ${groups.length > F.lim ? `<div class="c" style="padding:10px"><button class="btn" id="more">Tampilkan lebih banyak</button></div>` : ''}</div>`;
   $('#fq').oninput = debounce(e => { F.q = e.target.value; F.lim = 60; petani(el); const i = $('#fq'); i.focus(); i.setSelectionRange(F.q.length, F.q.length); });
   $('#fp').onchange = e => { F.poktan = e.target.value; F.lim = 60; petani(el); }; $('#fk').onchange = e => { F.kom = e.target.value; F.lim = 60; petani(el); };
   $$('[data-st]', el).forEach(c => c.onclick = () => { F.st = c.dataset.st; F.lim = 60; petani(el); });
+  const fpk = $('#fpk'); if (fpk) fpk.onchange = e => { F.pk = e.target.value; F.lim = 60; petani(el); };
   $('#xImp').onclick = openImportPetani; $('#xExp').onclick = exportPetani; const pa = $('#pAdd'); if (pa) pa.onclick = () => openPetaniForm();
   const m = $('#more'); if (m) m.onclick = () => { F.lim += 100; petani(el); };
   wireGroups(el);
