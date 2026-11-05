@@ -321,7 +321,7 @@ function dptInfo(rs) {
 function groupHtml(key, recs) {
   const open = F.open.has(key), p0 = recs[0];
   const pok = [...byPok(recs)];
-  const flags = (recs.some(r => sum(r.ba) > 0) ? '<span class="tag warn">belum ambil</span> ' : '') + (recs.some(r => sum(r.bi) > 0) ? '<span class="tag bad">belum input</span> ' : '');
+  const flags = (recs.some(r => sum(r.ba) > 0) ? '<span class="tag warn">belum ambil</span> ' : '') + (recs.some(r => sum(r.bi) > 0) ? '<span class="tag bad">belum input</span> ' : '') + (F._val ? F._val(recs) : '');
   const line2 = `${esc(p0.nik || '-')}${p0.nik ? `<button class="cpy" data-copynik="${esc(p0.nik)}" title="Salin NIK">${I.copy}</button>` : ''} – ${pok.map(([nm]) => esc(nm)).join(' – ')}`;
   const line3 = [ttl(p0), p0.alamat].filter(Boolean).map(esc).join(' – ');
   let body = '';
@@ -343,19 +343,27 @@ function petani(el) {
   const stF = { ba: p => ad(p.ba), bi: p => ad(p.bi), sisa: p => ad(p.sisa), belum: p => PK.some(k => p.q[k] > 0) && PK.every(k => !(p.in[k] > 0)) }[F.st];
   if (stF) groups = groups.filter(([k, rs]) => rs.some(stF));
   groups.sort((a, b) => a[1][0].nama.localeCompare(b[1][0].nama));
+  // urutan terbanyak (urea/phonska) sesuai kriteria yang dipilih
+  const fld = { ba: 'ba', bi: 'bi', sisa: 'sisa', belum: 'q' }[F.st];
+  const nilai = rs => rs.reduce((a, p) => a + PK.reduce((x, k) => x + Math.max(0, p[fld][k] || 0), 0), 0);
+  if (fld && F.urut === 'banyak') groups.sort((a, b) => nilai(b[1]) - nilai(a[1]));
+  // tampilkan jumlahnya (sak) di baris petani supaya tidak perlu dibuka
+  F._val = fld ? rs => PK.map(k => [k, rs.reduce((a, p) => a + Math.max(0, p[fld][k] || 0), 0)]).filter(([, v]) => v > 0).map(([k, v]) => `<span class="tag c-${k}"><i class="dot"></i>${NAMA[k]} ${n(sak(v, berat(k)))} sak</span>`).join(' ') : null;
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Petani <span class="mut sm">${n(groups.length)} NIK</span></h2>
     <button class="btn sm" id="xImp">${I.upload} Impor</button><button class="btn sm" id="xExp">${I.download} Ekspor</button>${isAdmin() ? `<button class="btn sm pri" id="pAdd">${I.plus} Tambah</button>` : ''}</div>
     <div class="bar"><input class="in sm-in" style="max-width:220px" id="fq" placeholder="Filter nama / NIK" value="${esc(F.q)}">
       <select class="in sm-in" style="width:auto" id="fp"><option value="">Semua poktan</option>${poktans.map(x => `<option ${x === F.poktan ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
       <select class="in sm-in" style="width:auto" id="fk"><option value="">Semua komoditas</option>${koms.map(x => `<option ${x === F.kom ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></div>
     <div class="bar">${[['', 'Semua'], ['ba', 'Belum ambil'], ['bi', 'Belum input'], ['sisa', 'Masih ada kuota'], ['belum', 'Belum ada input']].map(([k, l]) => `<span class="chip ${F.st === k ? 'on' : ''}" data-st="${k}">${l}</span>`).join('')}
-      ${F.st ? `<select class="in sm-in" style="width:auto" id="fpk">${[['', 'Urea + Phonska'], ['urea', 'Urea saja'], ['phonska', 'Phonska saja']].map(([v, l]) => `<option value="${v}" ${(F.pk || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : ''}</div>
+      ${F.st ? `<select class="in sm-in" style="width:auto" id="fpk">${[['', 'Urea + Phonska'], ['urea', 'Urea saja'], ['phonska', 'Phonska saja']].map(([v, l]) => `<option value="${v}" ${(F.pk || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select class="in sm-in" style="width:auto" id="furut"><option value="">Urut nama</option><option value="banyak" ${F.urut === 'banyak' ? 'selected' : ''}>Urut terbanyak</option></select>` : ''}</div>
     <div class="card list dense" id="glist" style="padding:4px 8px">${groups.slice(0, F.lim).map(([k, rs]) => groupHtml(k, rs)).join('') || '<span class="mut">Tidak ada data</span>'}
     ${groups.length > F.lim ? `<div class="c" style="padding:10px"><button class="btn" id="more">Tampilkan lebih banyak</button></div>` : ''}</div>`;
   $('#fq').oninput = debounce(e => { F.q = e.target.value; F.lim = 60; petani(el); const i = $('#fq'); i.focus(); i.setSelectionRange(F.q.length, F.q.length); });
   $('#fp').onchange = e => { F.poktan = e.target.value; F.lim = 60; petani(el); }; $('#fk').onchange = e => { F.kom = e.target.value; F.lim = 60; petani(el); };
   $$('[data-st]', el).forEach(c => c.onclick = () => { F.st = c.dataset.st; F.lim = 60; petani(el); });
   const fpk = $('#fpk'); if (fpk) fpk.onchange = e => { F.pk = e.target.value; F.lim = 60; petani(el); };
+  const fu = $('#furut'); if (fu) fu.onchange = e => { F.urut = e.target.value; F.lim = 60; petani(el); };
   $('#xImp').onclick = openImportPetani; $('#xExp').onclick = exportPetani; const pa = $('#pAdd'); if (pa) pa.onclick = () => openPetaniForm();
   const m = $('#more'); if (m) m.onclick = () => { F.lim += 100; petani(el); };
   wireGroups(el);
