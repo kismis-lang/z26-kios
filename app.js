@@ -18,7 +18,7 @@ function applyTheme() {
 applyTheme();
 
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.16', VERSI_TGL = '7 Nov 2026';
+const VERSI = '1.17', VERSI_TGL = '7 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -302,7 +302,7 @@ function komHtml(r) {
       ${ket || r.keterangan ? `<div class="ket"><b>Keterangan:</b> ${esc(ket || r.keterangan)}</div>` : ''}
       <div class="rl"><button class="btn sm pri" data-jual="${r.id_data}">${I.plus} Jual</button><button class="btn sm" data-bi="${r.id_data}">${I.camera} Ambil sebelum input</button><button class="btn xs" data-edit="${r.id_data}" title="Ubah kuota / luas">${I.edit}</button></div></div>`;
   }
-  return `<div class="lv lv2 ${open ? 'open' : ''}"><div class="tap" data-tog="r:${r.id_data}"><span class="chev">›</span><b>${esc(r.komoditas || '-')}</b> <span class="kk">(${sakArr(r.ak, isTebu(r)).join(',')})</span><span class="mut">${luas(r.luas_lahan)} Ha</span><span class="sp"></span>${bi ? '<span class="tag bad">blm input</span>' : ''}${sum(r.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}</div>${body}</div>`;
+  return `<div class="lv lv2 ${open ? 'open' : ''}"><div class="tap" data-tog="r:${r.id_data}"><span class="chev">›</span><b>${esc(r.komoditas || '-')}</b> <span class="kk">(${sakArr(Object.fromEntries(KODE.map(k => [k, (r.ak[k] || 0) + (r.bi[k] || 0)])), isTebu(r)).join(',')})</span><span class="mut">${luas(r.luas_lahan)} Ha</span><span class="sp"></span>${bi ? `<span class="tag ${KODE.some(k => k !== 'organik' && r.bi[k] > 0) ? 'bad' : 'kng'}">blm input</span>` : ''}${sum(r.ba) > 0 ? '<span class="tag warn">blm ambil</span>' : ''}</div>${body}</div>`;
 }
 const luas = v => String(Math.round((+v || 0) * 100) / 100).replace('.', ',');
 const rnd1 = v => Math.round(v * 10) / 10;
