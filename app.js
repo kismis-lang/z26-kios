@@ -18,7 +18,7 @@ function applyTheme() {
 applyTheme();
 
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.15', VERSI_TGL = '7 Nov 2026';
+const VERSI = '1.16', VERSI_TGL = '7 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -314,7 +314,8 @@ function dptInfo(rs) {
   if (!dpt.length) return null;
   // Tebu rakyat (atau DPT berisi 4 angka): urea, phonska, organik, ZA
   const n4 = rs.some(isTebu) || dpt.length > 3;
-  const sumN = rs.reduce((a, r) => a.map((v, i) => v + sakArr(r.ak, n4)[i]), n4 ? [0, 0, 0, 0] : [0, 0, 0]).map(rnd1);
+  // total dibawa = sudah diambil dari gudang + diambil sebelum input
+  const sumN = rs.reduce((a, r) => { const t = sakArr(Object.fromEntries(KODE.map(k => [k, (r.ak[k] || 0) + (r.bi[k] || 0)])), n4); return a.map((v, i) => v + t[i]); }, n4 ? [0, 0, 0, 0] : [0, 0, 0]).map(rnd1);
   const manual = parseDpt(rs.map(r => r.dpt_realisasi).find(Boolean));
   const real = manual.length ? manual : sumN;
   const up = rnd1((dpt[0] || 0) + (dpt[1] || 0) - (real[0] || 0) - (real[1] || 0)), og = rnd1((dpt[2] || 0) - (real[2] || 0));
@@ -324,7 +325,7 @@ function dptInfo(rs) {
 function groupHtml(key, recs) {
   const open = F.open.has(key), p0 = recs[0];
   const pok = [...byPok(recs)];
-  const flags = (recs.some(r => sum(r.ba) > 0) ? '<span class="tag warn">belum ambil</span> ' : '') + (recs.some(r => sum(r.bi) > 0) ? '<span class="tag bad">belum input</span> ' : '') + (F._val ? F._val(recs) : '');
+  const flags = (recs.some(r => sum(r.ba) > 0) ? '<span class="tag warn">belum ambil</span> ' : '') + (recs.some(r => sum(r.bi) > 0) ? `<span class="tag ${recs.some(r => KODE.some(k => k !== 'organik' && r.bi[k] > 0)) ? 'bad' : 'kng'}">belum input</span> ` : '') + (F._val ? F._val(recs) : '');
   const line2 = `${esc(p0.nik || '-')}${p0.nik ? `<button class="cpy" data-copynik="${esc(p0.nik)}" title="Salin NIK">${I.copy}</button>` : ''} – ${pok.map(([nm]) => esc(nm)).join(' – ')}`;
   const line3 = [ttl(p0), p0.alamat].filter(Boolean).map(esc).join(' – ');
   let body = '';
@@ -548,7 +549,7 @@ function dataAmbil() {
   }
   const pOf = id => { const p = S.pid[id]; return p && M['p:' + (p.nik || 'id' + p.id_data)]; };
   for (const r of S.kg) { const o = pOf(r.id_data); if (o) tambah(o, r.tanggal_waktu, r); }
-  for (const r of S.bf) { const o = pOf(r.id_data); if (o) tambah(o, r.tanggal_waktu, r, 'belum input'); }
+  for (const r of S.bf) { const o = pOf(r.id_data); if (o) tambah(o, r.tanggal_waktu, r, KODE.some(k => k !== 'organik' && +r[k] > 0) ? 'bi' : 'bio'); }
   for (const h of S.lk) {
     const v = z(); S.dlk.filter(d => d.id_lk === h.id_lk).forEach(d => { const k = S.byId[d.id_produk]?.kode; if (k) v[k] += +d.jumlah; });
     if (!sum(v)) continue;
@@ -562,7 +563,7 @@ function ambil(el) {
   const q = F.aq.toLowerCase();
   const L = dataAmbil().filter(o => (!F.aj || o.jenis === F.aj) && (!q || o.nama.toLowerCase().includes(q) || o.key.includes(q)));
   const pupuk = v => KODE.filter(k => v[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(v[k], k)}</b></span>`).join(' ');
-  const tg = tags => tags.size ? ` <span class="tag bad">${[...tags].join(', ')}</span>` : '';
+  const tg = tags => tags.size ? ` <span class="tag ${tags.has('bi') ? 'bad' : 'kng'}">belum input</span>` : '';   // kuning bila yang belum input hanya organik
   const baris = (o, h) => {
     const J = Object.values(h.jam).sort((a, b) => b.jm.localeCompare(a.jm)), banyak = J.length > 1, id = o.key + '|' + h.d, buka = abDay.has(id);
     return `<div class="abx ${buka ? 'on' : ''}"><div class="abr ${banyak ? 'click' : ''}" ${banyak ? `data-abday="${esc(id)}"` : ''}>
