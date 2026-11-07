@@ -17,6 +17,9 @@ function applyTheme() {
 }
 applyTheme();
 
+// nomor versi: dinaikkan setiap ada perubahan yang diunggah
+const VERSI = '1.15', VERSI_TGL = '7 Nov 2026';
+
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
   ['gudang', 'Gudang', I.box], ['ambil', 'Riwayat pengambilan', I.truck], ['luar', 'Luar kelompok', I.out], ['poktan', 'Poktan & kuota', I.map], ['keuangan', 'Keuangan', I.money], ['pengaturan', 'Pengaturan', I.gear],
@@ -190,7 +193,7 @@ function beranda(el) {
   const pList = (L, go) => L.slice(0, 6).map(o => `<div class="bl" data-nik="${esc(o.key)}"><span class="grow t"><b>${esc(o.nama)}</b> <span class="mut sm">${esc([...o.pok].join(', '))}</span></span><span class="sm r">${AK.filter(k => o.v[k]).map(k => `<span class="c-${k}"><i class="dot"></i>${n(sak(o.v[k], berat(k)))}</span>`).join(' ')} <span class="mut">sak</span></span></div>`).join('') + (L.length > 6 ? `<div class="r"><button class="btn sm" data-go="${go}">Semua ${L.length} petani ›</button></div>` : '');
   const sel = st.filter(x => AK.includes(x.k));
   el.innerHTML = `
-  <div class="hello"><div><b>${HARI[now.getDay()]}, ${tgl(now)}</b><div class="mut sm">Data tahun ${S.tahun} · ${n(Object.keys(S.byNik).length)} petani · ${n(S.pen.length)} transaksi</div></div></div>
+  <div class="hello"><div><b>${HARI[now.getDay()]}, ${tgl(now)}</b><div class="mut sm">Data tahun ${S.tahun} · ${n(Object.keys(S.byNik).length)} petani · ${n(S.pen.length)} transaksi · <span title="Versi aplikasi">v${VERSI}</span></div></div></div>
 
   <div class="card"><div class="sec" style="margin-top:0"><h3>Hari ini</h3><button class="btn sm" data-go="penjualan">Penjualan ›</button></div>
     <div class="grid g3">
@@ -534,9 +537,10 @@ function dataAmbil() {
   const orang = (key, nama, ket, jenis) => M[key] ||= { key, nama, ket, jenis, q: z(), tot: z(), hari: {}, last: '' };
   const tambah = (o, tw, v, tag) => {
     const d = tglWIB(tw); if (!d) return;
-    const h = o.hari[d] ||= { d, v: z(), tag: new Set() };
-    for (const k of KODE) { const x = +v[k] || 0; h.v[k] += x; o.tot[k] += x; }
-    if (tag) h.tag.add(tag); if (String(tw) > o.last) o.last = String(tw);
+    const h = o.hari[d] ||= { d, v: z(), tag: new Set(), jam: {} };
+    const jm = jam(tw), J = h.jam[jm] ||= { jm, v: z(), tag: new Set() };
+    for (const k of KODE) { const x = +v[k] || 0; h.v[k] += x; J.v[k] += x; o.tot[k] += x; }
+    if (tag) { h.tag.add(tag); J.tag.add(tag); } if (String(tw) > o.last) o.last = String(tw);
   };
   for (const [nik, rs] of Object.entries(S.byNik)) {
     const o = orang('p:' + nik, rs[0].nama, [...new Set(rs.map(r => r.poktan).filter(Boolean))].join(', '), 'p');
@@ -552,29 +556,48 @@ function dataAmbil() {
   }
   return Object.values(M).filter(o => o.last).sort((a, b) => b.last.localeCompare(a.last));
 }
+const abOpen = new Set(), abDay = new Set();
 function ambil(el) {
   const sk = (v, k) => n(sak(v, berat(k)));
   const q = F.aq.toLowerCase();
   const L = dataAmbil().filter(o => (!F.aj || o.jenis === F.aj) && (!q || o.nama.toLowerCase().includes(q) || o.key.includes(q)));
-  const pupuk = (v, f = k => true) => KODE.filter(k => v[k] > 0 && f(k)).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(v[k], k)}</b></span>`).join(' ');
+  const pupuk = v => KODE.filter(k => v[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(v[k], k)}</b></span>`).join(' ');
+  const tg = tags => tags.size ? ` <span class="tag bad">${[...tags].join(', ')}</span>` : '';
+  const baris = (o, h) => {
+    const J = Object.values(h.jam).sort((a, b) => b.jm.localeCompare(a.jm)), banyak = J.length > 1, id = o.key + '|' + h.d, buka = abDay.has(id);
+    return `<div class="abx ${buka ? 'on' : ''}"><div class="abr ${banyak ? 'click' : ''}" ${banyak ? `data-abday="${esc(id)}"` : ''}>
+      <span class="abt">${tgl(h.d + 'T12:00:00+07:00')}<span class="mut sm"> ${banyak ? J.length + '×' : J[0].jm}</span></span><span class="grow">${pupuk(h.v)}${tg(h.tag)}</span>${banyak ? `<span class="chv">›</span>` : ''}</div>
+      ${banyak ? `<div class="abj">${J.map(x => `<div class="abr"><span class="abt">jam ${x.jm}</span><span class="grow">${pupuk(x.v)}${tg(x.tag)}</span></div>`).join('')}</div>` : ''}</div>`;
+  };
   const kartu = o => {
-    const hari = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d));
-    const kuota = sum(o.q) ? `<div class="sm"><span class="mut">Kuota</span> ${KODE.filter(k => o.q[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(o.q[k], k)}</b></span>`).join(' ')} <span class="mut">sak</span></div>` : '';
-    return `<div class="ab">
-      <div class="abh ${o.jenis === 'p' ? 'click' : ''}" ${o.jenis === 'p' ? `data-abnik="${esc(o.key.slice(2))}"` : ''}><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span></div>
+    const hari = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d)), buka = abOpen.has(o.key);
+    const kuota = sum(o.q) ? `<div class="sm"><span class="mut">Kuota</span> ${pupuk(o.q)} <span class="mut">sak</span></div>` : '';
+    return `<div class="ab ${buka ? 'on' : ''}">
+      <div class="abh click" data-abk="${esc(o.key)}"><span class="grow"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span></span>
+        ${o.jenis === 'p' ? `<button class="btn xs" data-abnik="${esc(o.key.slice(2))}" title="Buka data petani">${I.users}</button>` : ''}</div>
       ${kuota}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
-      <div class="abd">${hari.map(h => `<div class="abr"><span class="abt">${tgl(h.d + 'T12:00:00+07:00')}</span><span class="grow">${pupuk(h.v)}${h.tag.size ? ` <span class="tag bad">${[...h.tag].join(', ')}</span>` : ''}</span></div>`).join('')}</div></div>`;
+      <div class="sm click abs" data-abk="${esc(o.key)}"><span class="mut">Terakhir ${tgl(o.last)} ${jam(o.last)} · ${hari.length} tanggal</span><span class="chv">›</span></div>
+      <div class="abd">${buka ? hari.map(h => baris(o, h)).join('') : ''}</div></div>`;
   };
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Riwayat pengambilan <span class="mut sm">${n(L.length)} orang</span></h2></div>
     <div class="bar"><input class="in sm-in" style="max-width:220px" id="aq" placeholder="Cari nama / NIK" value="${esc(F.aq)}">
       ${[['', 'Semua'], ['p', 'Petani'], ['l', 'Luar kelompok']].map(([k, l]) => `<span class="chip ${F.aj === k ? 'on' : ''}" data-aj="${k}">${l}</span>`).join('')}</div>
-    <div class="mut sm" style="margin:0 2px 6px">Dalam sak · urut pengambilan terakhir · termasuk yang belum input & penjualan luar</div>
-    <div class="card" style="padding:4px 10px">${L.slice(0, F.alim).map(kartu).join('') || '<span class="mut">Tidak ada data</span>'}
+    <div class="mut sm" style="margin:0 2px 6px">Dalam sak · urut pengambilan terakhir · ketuk nama untuk rincian per tanggal</div>
+    <div class="card" id="ablist" style="padding:4px 10px">${L.slice(0, F.alim).map(kartu).join('') || '<span class="mut">Tidak ada data</span>'}
     ${L.length > F.alim ? `<div class="c" style="padding:10px"><button class="btn" id="amore">Tampilkan lebih banyak</button></div>` : ''}</div>`;
   $('#aq').oninput = debounce(e => { F.aq = e.target.value; F.alim = 40; ambil(el); const i = $('#aq'); i.focus(); i.setSelectionRange(F.aq.length, F.aq.length); });
   $$('[data-aj]', el).forEach(c => c.onclick = () => { F.aj = c.dataset.aj; F.alim = 40; ambil(el); });
   const m = $('#amore'); if (m) m.onclick = () => { F.alim += 60; ambil(el); };
-  $$('[data-abnik]', el).forEach(c => c.onclick = () => hooks.openNik(c.dataset.abnik));
+  const byKey = Object.fromEntries(L.map(o => [o.key, o]));
+  $('#ablist').onclick = e => {
+    const t = e.target;
+    const nb = t.closest('[data-abnik]'); if (nb) { e.stopPropagation(); return hooks.openNik(nb.dataset.abnik); }
+    const dy = t.closest('[data-abday]'); if (dy) { const id = dy.dataset.abday; abDay.has(id) ? abDay.delete(id) : abDay.add(id); dy.parentElement.classList.toggle('on'); return; }
+    const kk = t.closest('[data-abk]'); if (!kk) return;
+    const key = kk.dataset.abk, card = kk.closest('.ab'), o = byKey[key];
+    if (abOpen.has(key)) { abOpen.delete(key); card.classList.remove('on'); }
+    else { abOpen.add(key); card.classList.add('on'); const d = $('.abd', card); if (!d.innerHTML && o) d.innerHTML = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d)).map(h => baris(o, h)).join(''); }
+  };
 }
 
 // ===== luar kelompok =====
@@ -694,7 +717,8 @@ function keuangan(el) {
 // ===== lainnya (HP) =====
 function lainnya(el) {
   el.innerHTML = `<div class="bar"><h2>Menu lain</h2></div><div class="grid g4">${MENU.filter(m => !BNAV.includes(m[0])).map(m => `<div class="card kpi click" data-go="${m[0]}"><div class="l"><span class="ic">${m[2]}</span>${m[1]}</div></div>`).join('')}
-    <div class="card kpi click" id="mHit"><div class="l"><span class="ic">${I.calc}</span>Hitung cepat</div></div><div class="card kpi click" id="mOut"><div class="l"><span class="ic">${I.out}</span>Keluar</div></div></div>`;
+    <div class="card kpi click" id="mHit"><div class="l"><span class="ic">${I.calc}</span>Hitung cepat</div></div><div class="card kpi click" id="mOut"><div class="l"><span class="ic">${I.out}</span>Keluar</div></div></div>
+    <div class="mut sm c" style="margin-top:14px">Aplikasi z26 · versi <b>${VERSI}</b> · ${VERSI_TGL}</div>`;
   wireCommon(el); $('#mHit').onclick = openHitung; $('#mOut').onclick = async () => { await sb.auth.signOut(); boot(); };
 }
 
