@@ -19,12 +19,12 @@ applyTheme();
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
-  ['gudang', 'Gudang', I.box], ['luar', 'Luar kelompok', I.out], ['poktan', 'Poktan & kuota', I.map], ['keuangan', 'Keuangan', I.money], ['pengaturan', 'Pengaturan', I.gear],
+  ['gudang', 'Gudang', I.box], ['ambil', 'Riwayat pengambilan', I.truck], ['luar', 'Luar kelompok', I.out], ['poktan', 'Poktan & kuota', I.map], ['keuangan', 'Keuangan', I.money], ['pengaturan', 'Pengaturan', I.gear],
 ];
 const BNAV = ['beranda', 'petani', 'penjualan', 'gudang', 'lainnya'];
 const VIEWS = [...MENU.map(m => m[0]), 'lainnya'];
 let view = 'beranda';
-const F = { q: '', poktan: '', kom: '', st: '', lim: 60, open: new Set(), pq: '', pr: '7', bs: 'ba' };
+const F = { q: '', poktan: '', kom: '', st: '', lim: 60, open: new Set(), pq: '', pr: '7', bs: 'ba', aq: '', aj: '', alim: 40 };
 
 // ===== riwayat (tombol kembali di HP) + posisi gulir =====
 history.scrollRestoration = 'manual';
@@ -159,7 +159,7 @@ function render(keepScroll) {
   document.body.classList.toggle('ro', !isAdmin());
   const y = window.scrollY; yrFill();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view || (b.closest('#bnav') && b.dataset.v === 'lainnya' && !BNAV.includes(view))));
-  const P = { beranda, petani, penjualan, belum, gudang, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
+  const P = { beranda, petani, penjualan, belum, gudang, ambil, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
   P($('#page'));
   if (keepScroll) restoreScroll(y);
 }
@@ -453,7 +453,7 @@ const docBtn = (s, k, lab) => { const p = s[k + '_path']; return (p ? `<button c
 function gudang(el) {
   const st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000;
   const row = (l, v, k, cls = '') => `<tr><td>${l}</td><td class="num ${cls}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(k)))} sak</td></tr>`;
-  el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2>${isAdmin() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
+  el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2><button class="btn sm" id="keAmbil">${I.truck} Riwayat ambil</button>${isAdmin() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
     <div class="grid g2">${st.map(x => { const R = (l, v, c = '', ind = 0) => `<tr><td style="padding-left:${ind * 10}px">${l}</td><td class="num ${c}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(x.k)))} sak</td></tr>`, H = t => `<tr><td colspan="3" class="b" style="padding-top:8px;color:var(--ac)">${t}</td></tr>`;
       return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b style="flex:1"><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}${isAdmin() ? `<button class="btn ic xs" data-gb="${x.k}" title="Ubah stok gudang belakang">${I.gdg}</button>` : ''}</div>
       <table class="dn" style="margin-top:4px">${H('STOK AWAL')}${R('Gudang', x.awal, '', 1)}${R('i-pubers', x.awalIp, '', 1)}${R('Selisih (gudang − i-pubers)', x.awal - x.awalIp, x.awal - x.awalIp < 0 ? 'bad' : '', 1)}
@@ -466,6 +466,7 @@ function gudang(el) {
     ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}<div class="mut sm">${jam(s.tanggal_input)}</div>${isAdmin() ? `<div class="rab"><button class="btn xs" data-sted="${esc(s.id_stok)}" title="Ubah">${I.edit}</button><button class="btn xs bad" data-stdel="${esc(s.id_stok)}" title="Hapus">${I.trash}</button></div>` : ''}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
       <div class="dokb">${docBtn(s, 'bast', 'BAST')}${docBtn(s, 'nota', 'Nota')}</div></td></tr>`).join('')}</table></div></div>`;
   const t = $('#terima'); if (t) t.onclick = () => terimaBarang();
+  $('#keAmbil').onclick = () => go('ambil');
   $$('[data-sted]', el).forEach(b => b.onclick = () => terimaBarang(S.stok.find(x => x.id_stok === b.dataset.sted)));
   $$('[data-stdel]', el).forEach(b => b.onclick = () => hapusStok(b.dataset.stdel));
   $$('[data-gb]', el).forEach(b => b.onclick = () => formGudangBelakang(st.find(x => x.k === b.dataset.gb)));
@@ -525,6 +526,55 @@ async function hapusStok(id) {
   const files = [r.bast_path, r.nota_path].filter(Boolean).filter(p => !S.stok.some(x => x.id_stok !== id && (x.bast_path === p || x.nota_path === p)));
   if (files.length) await sb.storage.from('berkas').remove(files);
   toast('Dihapus'); await boot(true);
+}
+
+// ===== riwayat pengambilan gudang (per petani/pembeli, per tanggal, terbaru di atas) =====
+function dataAmbil() {
+  const M = {};
+  const orang = (key, nama, ket, jenis) => M[key] ||= { key, nama, ket, jenis, q: z(), tot: z(), hari: {}, last: '' };
+  const tambah = (o, tw, v, tag) => {
+    const d = tglWIB(tw); if (!d) return;
+    const h = o.hari[d] ||= { d, v: z(), tag: new Set() };
+    for (const k of KODE) { const x = +v[k] || 0; h.v[k] += x; o.tot[k] += x; }
+    if (tag) h.tag.add(tag); if (String(tw) > o.last) o.last = String(tw);
+  };
+  for (const [nik, rs] of Object.entries(S.byNik)) {
+    const o = orang('p:' + nik, rs[0].nama, [...new Set(rs.map(r => r.poktan).filter(Boolean))].join(', '), 'p');
+    for (const r of rs) for (const k of KODE) o.q[k] += r.q[k];
+  }
+  const pOf = id => { const p = S.pid[id]; return p && M['p:' + (p.nik || 'id' + p.id_data)]; };
+  for (const r of S.kg) { const o = pOf(r.id_data); if (o) tambah(o, r.tanggal_waktu, r); }
+  for (const r of S.bf) { const o = pOf(r.id_data); if (o) tambah(o, r.tanggal_waktu, r, 'belum input'); }
+  for (const h of S.lk) {
+    const v = z(); S.dlk.filter(d => d.id_lk === h.id_lk).forEach(d => { const k = S.byId[d.id_produk]?.kode; if (k) v[k] += +d.jumlah; });
+    if (!sum(v)) continue;
+    const nm = (h.pembeli || '-').trim(); tambah(orang('l:' + nm.toLowerCase(), nm, 'luar kelompok', 'l'), h.tanggal_waktu, v);
+  }
+  return Object.values(M).filter(o => o.last).sort((a, b) => b.last.localeCompare(a.last));
+}
+function ambil(el) {
+  const sk = (v, k) => n(sak(v, berat(k)));
+  const q = F.aq.toLowerCase();
+  const L = dataAmbil().filter(o => (!F.aj || o.jenis === F.aj) && (!q || o.nama.toLowerCase().includes(q) || o.key.includes(q)));
+  const pupuk = (v, f = k => true) => KODE.filter(k => v[k] > 0 && f(k)).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(v[k], k)}</b></span>`).join(' ');
+  const kartu = o => {
+    const hari = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d));
+    const kuota = sum(o.q) ? `<div class="sm"><span class="mut">Kuota</span> ${KODE.filter(k => o.q[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${sk(o.q[k], k)}</b></span>`).join(' ')} <span class="mut">sak</span></div>` : '';
+    return `<div class="ab">
+      <div class="abh ${o.jenis === 'p' ? 'click' : ''}" ${o.jenis === 'p' ? `data-abnik="${esc(o.key.slice(2))}"` : ''}><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span></div>
+      ${kuota}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
+      <div class="abd">${hari.map(h => `<div class="abr"><span class="abt">${tgl(h.d + 'T12:00:00+07:00')}</span><span class="grow">${pupuk(h.v)}${h.tag.size ? ` <span class="tag bad">${[...h.tag].join(', ')}</span>` : ''}</span></div>`).join('')}</div></div>`;
+  };
+  el.innerHTML = `<div class="bar"><h2 style="flex:1">Riwayat pengambilan <span class="mut sm">${n(L.length)} orang</span></h2></div>
+    <div class="bar"><input class="in sm-in" style="max-width:220px" id="aq" placeholder="Cari nama / NIK" value="${esc(F.aq)}">
+      ${[['', 'Semua'], ['p', 'Petani'], ['l', 'Luar kelompok']].map(([k, l]) => `<span class="chip ${F.aj === k ? 'on' : ''}" data-aj="${k}">${l}</span>`).join('')}</div>
+    <div class="mut sm" style="margin:0 2px 6px">Dalam sak · urut pengambilan terakhir · termasuk yang belum input & penjualan luar</div>
+    <div class="card" style="padding:4px 10px">${L.slice(0, F.alim).map(kartu).join('') || '<span class="mut">Tidak ada data</span>'}
+    ${L.length > F.alim ? `<div class="c" style="padding:10px"><button class="btn" id="amore">Tampilkan lebih banyak</button></div>` : ''}</div>`;
+  $('#aq').oninput = debounce(e => { F.aq = e.target.value; F.alim = 40; ambil(el); const i = $('#aq'); i.focus(); i.setSelectionRange(F.aq.length, F.aq.length); });
+  $$('[data-aj]', el).forEach(c => c.onclick = () => { F.aj = c.dataset.aj; F.alim = 40; ambil(el); });
+  const m = $('#amore'); if (m) m.onclick = () => { F.alim += 60; ambil(el); };
+  $$('[data-abnik]', el).forEach(c => c.onclick = () => hooks.openNik(c.dataset.abnik));
 }
 
 // ===== luar kelompok =====
