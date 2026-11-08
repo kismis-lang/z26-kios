@@ -417,3 +417,41 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 @keyframes pop{from{transform:scale(.85);opacity:.4}}
 .ev .r{min-width:92px}
 .ev>.grow{flex:1;min-width:0}
+/* ===== v19 dashboard 2 kolom + animasi lebih hidup ===== */
+.dash{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
+@media (min-width:1000px){
+  .dash{display:block;columns:2;column-gap:14px}
+  .dash>.card{break-inside:avoid;margin:0 0 14px;display:inline-block;width:100%}
+  .dash .mini .big{font-size:20px}
+}
+.big[data-cnt],[data-cnt]{font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:no-preference){
+  #page.anim .hbar div{animation-delay:calc(.15s + var(--i,0) * 35ms)}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr){animation:slideIn .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:.18s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(2){animation-delay:.22s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(3){animation-delay:.26s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(4){animation-delay:.3s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(5){animation-delay:.34s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(6){animation-delay:.38s}
+  #page.anim .dash :is(.li,.ev,.bl,.prow,.kl,tr):nth-child(n+7){animation-delay:.42s}
+  #page.anim .dash .mini{animation:popIn .5s cubic-bezier(.34,1.56,.64,1) both}
+  #page.anim .dash .mini:nth-child(2){animation-delay:.08s}#page.anim .dash .mini:nth-child(3){animation-delay:.16s}
+  .dash .card.flash .mini{animation:popIn .45s cubic-bezier(.34,1.56,.64,1) both}
+  .dash .card.flash .mini:nth-child(2){animation-delay:.06s}.dash .card.flash .mini:nth-child(3){animation-delay:.12s}
+  .dash .card.flash .list .li{animation:slideIn .35s ease both}
+  .sec h3 .warn,.sec h3 .bad{display:inline-block;animation:beat 2.2s ease-in-out infinite}
+  .pg i{position:relative;overflow:hidden}
+  .pg i::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);transform:translateX(-100%);animation:shine 3.2s 1.2s ease-in-out infinite}
+  .hello b{display:inline-block;animation:slideIn .5s both}
+  @media (hover:hover){
+    .dash>.card{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+    .dash>.card:hover{transform:translateY(-3px);box-shadow:0 14px 28px -14px rgba(0,0,0,.28)}
+    .ev:hover,.bl:hover,.li:hover{background:var(--bg2)}
+    .hbar div{transition:filter .2s,transform .2s}.hbar div:hover{filter:brightness(1.15);transform:scaleY(1.04);transform-origin:bottom}
+  }
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}}
+@keyframes popIn{from{opacity:0;transform:scale(.9) translateY(6px)}}
+@keyframes beat{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.35);opacity:.6}}
+@keyframes shine{0%{transform:translateX(-100%)}60%,100%{transform:translateX(100%)}}
+@media (min-width:1000px){.dash .grid.g3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dash .mini{padding:10px}}

@@ -19,7 +19,7 @@ applyTheme();
 
 const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="zbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset=".55" stop-color="#059669"/><stop offset="1" stop-color="#065f46"/></linearGradient><radialGradient id="zgl" cx=".28" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="zlf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#ffffff"/></linearGradient><linearGradient id="zgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><rect class="zb" width="120" height="120" rx="32" fill="url(#zbg)"/><rect width="120" height="120" rx="32" fill="url(#zgl)"/><path class="zs" d="M30 84 Q60 72 90 84" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/><path class="zt" d="M60 80 C60 68 60 58 63 46" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path class="zl1" d="M60 66 C45 67 33 57 31 40 C47 39 58 49 60 66Z" fill="url(#zlf)"/><path class="zl2" d="M62 54 C63 37 76 25 93 24 C94 42 81 54 62 54Z" fill="#d1fae5"/><path class="zl2" d="M66 50 L86 30" stroke="#059669" stroke-opacity=".35" stroke-width="2" stroke-linecap="round" fill="none"/><circle class="zg1" cx="44" cy="96" r="6" fill="url(#zgr)"/><circle class="zg2" cx="60" cy="99" r="6" fill="url(#zgr)"/><circle class="zg3" cx="76" cy="96" r="6" fill="url(#zgr)"/></svg>`;
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.18', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.19', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -166,8 +166,22 @@ function render(keepScroll) {
   const P = { beranda, petani, penjualan, belum, gudang, ambil, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
   const pg = $('#page'), baru = pg.dataset.v !== view; pg.dataset.v = view;
   P(pg);
-  if (baru) { pg.classList.remove('anim'); void pg.offsetWidth; pg.classList.add('anim'); }   // animasi masuk hanya saat pindah halaman
+  if (baru) { pg.classList.remove('anim'); void pg.offsetWidth; pg.classList.add('anim'); countUp(pg); }   // animasi masuk hanya saat pindah halaman
   if (keepScroll) restoreScroll(y);
+}
+
+// angka bergerak naik dari 0 (hanya saat halaman dibuka / periode diganti)
+const geraklah = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+function countUp(root) {
+  if (!geraklah) return;
+  const L = $$('[data-cnt]', root).filter(e => Math.abs(+e.dataset.cnt) > 0).slice(0, 40); if (!L.length) return;
+  const fm = e => e.dataset.f === 'rp' ? rp : n, t0 = performance.now(), D = 900;
+  const step = t => {
+    const p = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - p, 3);
+    for (const x of L) x.textContent = fm(x)(Math.round(+x.dataset.cnt * e));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // ===== kartu =====
@@ -175,7 +189,7 @@ const kpi = (l, v, ic, sub = '', go = '') => `<div class="card kpi ${go ? 'click
 const kpiLines = (l, ic, o, sub, go) => `<div class="card kpi click" data-go="${go}"><div class="l"><span class="ic">${ic}</span>${l}</div><div class="kls">${KODE.map(k => `<div class="kl c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(o[k])}</b> kg <span class="mut">(${n(sak(o[k], berat(k)))} sak)</span></div>`).join('')}</div><div class="mut sm">${sub}</div></div>`;
 
 // ===== beranda =====
-const ks = (v, k) => `<b>${n(v)}</b> kg <span class="mut">(${n(sak(v, berat(k)))} sak)</span>`;
+const ks = (v, k) => `<b data-cnt="${v}">${n(v)}</b> kg <span class="mut">(${n(sak(v, berat(k)))} sak)</span>`;
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 function beranda(el) {
   const h = ringkasHariIni(), b = totalBelum(), st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000, pk = perPoktan(), hr = penjualan14Hari();
@@ -205,50 +219,47 @@ function beranda(el) {
   const sel = st.filter(x => AK.includes(x.k));
   el.innerHTML = `
   <div class="hello"><div><b>${HARI[now.getDay()]}, ${tgl(now)}</b><div class="mut sm">Data tahun ${S.tahun} · ${n(Object.keys(S.byNik).length)} petani · ${n(S.pen.length)} transaksi · <span title="Versi aplikasi">v${VERSI}</span></div></div></div>
+  <div class="dash">
 
   <div class="card"><div class="sec" style="margin-top:0"><div class="seg">${Object.entries(PER).map(([k, l]) => `<button class="${per === k ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div><button class="btn sm" data-go="penjualan">Penjualan ›</button></div>
     <div class="grid g3">
-      <div class="mini"><div class="mut sm">Penjualan</div><div class="big">${rp(h.omzet)}</div><div class="sm">${h.n} transaksi</div></div>
+      <div class="mini"><div class="mut sm">Penjualan</div><div class="big" data-cnt="${h.omzet}" data-f="rp">${rp(h.omzet)}</div><div class="sm">${h.n} transaksi</div></div>
       <div class="mini"><div class="mut sm">Diinput (aplikasi resmi)</div>${lines(inHr, 'belum ada')}</div>
       <div class="mini"><div class="mut sm">Diambil dari gudang</div>${lines(Object.fromEntries(KODE.map(k => [k, ambilHr[k] + biHr[k]])), 'belum ada')}${sum(biHr) ? `<div class="sm bad">termasuk belum input: ${AK.filter(k => biHr[k]).map(k => NAMA[k] + ' ' + n(biHr[k]) + ' kg').join(', ')}</div>` : ''}</div>
     </div>
     ${h.list.length ? `<div class="list" style="margin-top:6px">${h.list.slice(0, 6).map(saleRow).join('')}</div>${h.list.length > 6 ? `<div class="mut sm c" style="padding-top:6px">+${h.list.length - 6} transaksi lain di halaman Penjualan</div>` : ''}` : ''}</div>
 
-  <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Pengambilan terbaru</h3><button class="btn sm" data-go="ambil">Riwayat ›</button></div>
-    <div class="evl">${ev.map(({ o, hh }) => `<div class="ev" data-evk="${esc(o.key)}"><div class="grow t"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span>
-      <div class="sm evp">${KODE.filter(k => hh.v[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(sak(hh.v[k], berat(k)))}</b></span>`).join(' ')} <span class="mut">sak</span>${hh.tag.size ? ` <span class="tag ${hh.tag.has('bi') ? 'bad' : 'kng'}">belum input</span>` : ''}</div></div>
-      <div class="r sm"><b>${tglWIB(hh.last) === today ? 'Hari ini' : tgl(hh.last)}</b><div class="mut">${jam(hh.last)}${Object.keys(hh.jam).length > 1 ? ` · ${Object.keys(hh.jam).length}×` : ''}</div></div></div>`).join('') || '<span class="mut">Belum ada pengambilan</span>'}</div></div>
-
-  <div class="grid g2" style="margin-top:12px">
     <div class="card"><div class="sec" style="margin-top:0"><h3><span class="warn">●</span> Belum ambil <span class="mut sm">titipan petani di gudang</span></h3><button class="btn sm" data-go="belum:ba">${S.pen.filter(s => sum(tanpaOrg(s.ba)) > 0).length} nota ›</button></div>
       <div class="kls">${lines(tanpaOrg(b.ba), 'tidak ada')}</div>${baL.length ? `<div class="bls">${pList(baL, 'belum:ba')}</div>` : ''}</div>
     <div class="card"><div class="sec" style="margin-top:0"><h3><span class="bad">●</span> Belum input <span class="mut sm">sudah diambil, belum diinput</span></h3><button class="btn sm" data-go="belum:bi">${biL.length} petani ›</button></div>
       <div class="kls">${lines(tanpaOrg(b.bi), 'tidak ada')}</div>${biL.length ? `<div class="bls">${pList(biL, 'belum:bi')}</div>` : ''}</div>
-  </div>
 
-  <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Stok</h3><button class="btn sm" data-go="gudang">Gudang ›</button></div>
+  <div class="card"><div class="sec" style="margin-top:0"><h3>Stok</h3><button class="btn sm" data-go="gudang">Gudang ›</button></div>
     <div class="tw"><table class="dn bt"><tr><th>Pupuk</th><th class="num">Gudang</th><th class="num">i-pubers</th><th class="num">Selisih</th><th class="num">Lebih/kurang</th></tr>
     ${sel.map(x => `<tr class="c-${x.k}"><td><i class="dot"></i>${NAMA[x.k]}${x.fisik < batas && x.masuk > 0 ? ' <span class="tag bad">menipis</span>' : ''}</td><td class="num">${n(x.fisik)}<div class="mut">${n(sak(x.fisik, berat(x.k)))} sak</div></td><td class="num">${n(x.sistem)}<div class="mut">${n(sak(x.sistem, berat(x.k)))} sak</div></td><td class="num ${x.selisih < 0 ? 'bad' : ''}">${n(x.selisih)}<div class="mut">${n(sak(x.selisih, berat(x.k)))} sak</div></td><td class="num b ${x.lebih < 0 ? 'bad' : 'ok'}">${n(x.lebih)}<div class="mut">${n(sak(x.lebih, berat(x.k)))} sak</div></td></tr>`).join('')}</table></div>
     <div class="mut sm">kg; selisih = gudang − i-pubers; lebih/kurang = selisih − belum ambil</div></div>
 
-  <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Penyaluran kuota ${S.tahun}</h3><button class="btn sm" data-go="poktan">Poktan ›</button></div>
-    ${AK.filter(k => tot.q[k] || tot.in[k]).map(k => `<div class="prow c-${k}"><div class="h"><span><i class="dot"></i><b>${NAMA[k]}</b></span><span><b>${n(tot.in[k])}</b> / ${n(tot.q[k])} kg <span class="mut">(${pct(tot.in[k], tot.q[k]).toFixed(1)}%)</span></span></div><div class="pg"><i style="width:${pct(tot.in[k], tot.q[k])}%"></i></div>
+  <div class="card"><div class="sec" style="margin-top:0"><h3>Penyaluran kuota ${S.tahun}</h3><button class="btn sm" data-go="poktan">Poktan ›</button></div>
+    ${AK.filter(k => tot.q[k] || tot.in[k]).map(k => `<div class="prow c-${k}"><div class="h"><span><i class="dot"></i><b>${NAMA[k]}</b></span><span><b data-cnt="${tot.in[k]}">${n(tot.in[k])}</b> / ${n(tot.q[k])} kg <span class="mut">(${pct(tot.in[k], tot.q[k]).toFixed(1)}%)</span></span></div><div class="pg"><i style="width:${pct(tot.in[k], tot.q[k])}%"></i></div>
       <div class="sm mut pr3"><span>sisa kuota <b>${n(tot.q[k] - tot.in[k])}</b></span><span>rencana <b>${n(tot.rc[k])}</b></span><span>diambil <b>${n(tot.ak[k])}</b></span><span>milik kios <b>${n(tot.in[k] - tot.rc[k])}</b></span></div></div>`).join('')}</div>
 
-  <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Per poktan</h3><span class="mut sm">input / kuota (sak)</span></div>
+  <div class="card"><div class="sec" style="margin-top:0"><h3>Per poktan</h3><span class="mut sm">input / kuota (sak)</span></div>
     <div class="tw"><table class="dn bt"><tr><th>Poktan</th>${AK.filter(k => tot.q[k]).map(k => `<th class="num c-${k}"><i class="dot"></i>${NAMA[k].replace('Pupuk ', '')}</th>`).join('')}<th class="num">%</th></tr>
     ${pk.map(o => `<tr data-pok="${esc(o.nama)}" class="click"><td><b>${esc(o.nama)}</b><div class="mut">${o.niks.size} petani</div></td>${AK.filter(k => tot.q[k]).map(k => `<td class="num">${n(Math.round(o.in[k] / berat(k)))}<span class="mut">/${n(Math.round(o.q[k] / berat(k)))}</span></td>`).join('')}<td class="num b">${pct(sum(o.in), sum(o.q)).toFixed(0)}%</td></tr>`).join('')}</table></div></div>
 
-  <div class="grid g2" style="margin-top:12px">
     <div class="card"><div class="sec" style="margin-top:0"><h3>Penjualan 14 hari</h3><span class="mut sm">total ${rp(hr.reduce((a, b) => a + b.omzet, 0))}</span></div>
-      <div class="hbar" style="margin-bottom:16px">${hr.map(x => `<div style="height:${Math.max(2, x.omzet / maxO * 100)}%" title="${x.k}: ${rp(x.omzet)}"><span>${x.label}</span></div>`).join('')}</div></div>
+      <div class="hbar" style="margin-bottom:16px">${hr.map((x, i) => `<div style="--i:${i};height:${Math.max(2, x.omzet / maxO * 100)}%" title="${x.k}: ${rp(x.omzet)}"><span>${x.label}</span></div>`).join('')}</div></div>
     <div class="card"><div class="sec" style="margin-top:0"><h3>Transaksi terbaru</h3><button class="btn sm" data-go="penjualan">Semua ›</button></div><div class="list">
       ${S.pen.slice(0, 6).map(saleRow).join('')}</div></div>
+  <div class="card"><div class="sec" style="margin-top:0"><h3>Pengambilan terbaru</h3><button class="btn sm" data-go="ambil">Riwayat ›</button></div>
+    <div class="evl">${ev.map(({ o, hh }) => `<div class="ev" data-evk="${esc(o.key)}"><div class="grow t"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span>
+      <div class="sm evp">${KODE.filter(k => hh.v[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(sak(hh.v[k], berat(k)))}</b></span>`).join(' ')} <span class="mut">sak</span>${hh.tag.size ? ` <span class="tag ${hh.tag.has('bi') ? 'bad' : 'kng'}">belum input</span>` : ''}</div></div>
+      <div class="r sm"><b>${tglWIB(hh.last) === today ? 'Hari ini' : tgl(hh.last)}</b><div class="mut">${jam(hh.last)}${Object.keys(hh.jam).length > 1 ? ` · ${Object.keys(hh.jam).length}×` : ''}</div></div></div>`).join('') || '<span class="mut">Belum ada pengambilan</span>'}</div></div>
   </div>`;
   wireCommon(el);
   $$('[data-nik]', el).forEach(c => c.onclick = () => hooks.openNik(c.dataset.nik));
   $$('[data-pok]', el).forEach(c => c.onclick = () => { F.q = ''; F.kom = ''; F.st = ''; F.poktan = c.dataset.pok; F.lim = 60; go('petani', { force: true }); });
-  $$('[data-per]', el).forEach(c => c.onclick = () => { F.per = c.dataset.per; beranda(el); });
+  $$('[data-per]', el).forEach(c => c.onclick = () => { F.per = c.dataset.per; beranda(el); const k = $('.dash>.card', el); k.classList.add('flash'); countUp(k); });
   $$('[data-evk]', el).forEach(c => c.onclick = () => { const o = ev.find(x => x.o.key === c.dataset.evk)?.o; if (!o) return; F.aq = o.nama; F.aj = ''; abOpen.add(o.key); go('ambil'); });
 }
 const saleRow = x => `<div class="li" data-no="${esc(x.no_pesanan)}"><div class="av">${esc(ini(x.nama_petani))}</div><div class="grow"><div class="t b">${esc(x.nama_petani)} <span class="mut sm">· ${esc(x.komoditas)}</span></div><div class="mut sm t">${esc(x.no_pesanan)} · ${tglJam(x.tanggal_waktu)}</div></div>
