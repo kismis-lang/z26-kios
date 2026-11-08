@@ -17,9 +17,11 @@ function applyTheme() {
 }
 applyTheme();
 
-const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="zbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset=".55" stop-color="#059669"/><stop offset="1" stop-color="#065f46"/></linearGradient><radialGradient id="zgl" cx=".28" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="zlf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#ffffff"/></linearGradient><linearGradient id="zgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><rect class="zb" width="120" height="120" rx="32" fill="url(#zbg)"/><rect width="120" height="120" rx="32" fill="url(#zgl)"/><path class="zs" d="M30 84 Q60 72 90 84" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/><path class="zt" d="M60 80 C60 68 60 58 63 46" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path class="zl1" d="M60 66 C45 67 33 57 31 40 C47 39 58 49 60 66Z" fill="url(#zlf)"/><path class="zl2" d="M62 54 C63 37 76 25 93 24 C94 42 81 54 62 54Z" fill="#d1fae5"/><path class="zl2" d="M66 50 L86 30" stroke="#059669" stroke-opacity=".35" stroke-width="2" stroke-linecap="round" fill="none"/><circle class="zg1" cx="44" cy="96" r="6" fill="url(#zgr)"/><circle class="zg2" cx="60" cy="99" r="6" fill="url(#zgr)"/><circle class="zg3" cx="76" cy="96" r="6" fill="url(#zgr)"/></svg>`;
+const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="zbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset=".55" stop-color="#059669"/><stop offset="1" stop-color="#065f46"/></linearGradient><radialGradient id="zgl" cx=".28" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="zlf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#ffffff"/></linearGradient><linearGradient id="zgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><rect class="zb" width="120" height="120" rx="32" fill="url(#zbg)"/><rect width="120" height="120" rx="32" fill="url(#zgl)"/><path class="zs" d="M30 84 Q60 72 90 84" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/><path class="zt" d="M60 80 C60 68 60 58 63 46" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path class="zl1" d="M60 66 C45 67 33 57 31 40 C47 39 58 49 60 66Z" fill="url(#zlf)"/><path class="zl2" d="M62 54 C63 37 76 25 93 24 C94 42 81 54 62 54Z" fill="#d1fae5"/><path class="zl2" d="M66 50 L86 30" stroke="#059669" stroke-opacity=".35" stroke-width="2" stroke-linecap="round" fill="none"/><circle class="zg1" cx="44" cy="96" r="6" fill="url(#zgr)"/><circle class="zg2" cx="60" cy="99" r="6" fill="url(#zgr)"/><circle class="zg3" cx="76" cy="96" r="6" fill="url(#zgr)"/></svg>`;
+let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
+const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.19', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.20', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -44,6 +46,7 @@ function go(v, opts = {}) {
 }
 function closeDrawerQuiet() { if (isDrawerOpen()) { $('#drawer').classList.remove('on'); $('#veil').classList.remove('on'); closeDrawer(true); } }
 addEventListener('popstate', e => {
+  if (keluarApp) { keluarApp = false; history.back(); return; }
   const st = e.state || {};
   if (isDrawerOpen() && !st.drawer) { closeDrawer(true); return; }       // kembali = tutup laci
   if (st.id && st.id === nav.eid) return;                                // masih halaman yang sama
@@ -52,9 +55,60 @@ addEventListener('popstate', e => {
   restoreScroll(nav.scroll[nav.eid] || 0);
 });
 
+// ===== geser kiri/kanan di HP = pindah menu bawah (dengan animasi) =====
+let geserPasang = false;
+function pasangGeser() {
+  if (geserPasang) return; geserPasang = true;
+  let x0 = 0, y0 = 0, dx = 0, aktif = false, arah = null, t0 = 0;
+  const pg = () => $('#page');
+  const bisaGeser = el => !el.closest('input,textarea,select,.tw,table,.seg,.hbar,#drawer,#bnav,[data-noswipe]');
+  addEventListener('touchstart', e => {
+    if (innerWidth > 820 || e.touches.length !== 1 || isDrawerOpen() || $('#keluarDlg') || !$('#page') || !bisaGeser(e.target)) { aktif = false; return; }
+    const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; arah = null; aktif = true; t0 = Date.now();
+    if (x0 < 18 || x0 > innerWidth - 18) aktif = false;     // tepi layar dipakai gerakan sistem
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (!aktif) return; const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
+    if (!arah) { if (Math.abs(ddx) < 10 && Math.abs(ddy) < 10) return; arah = Math.abs(ddx) > Math.abs(ddy) * 1.3 ? 'h' : 'v'; if (arah === 'h') pg().classList.add('drag'); }
+    if (arah !== 'h') return;
+    dx = ddx; const p = pg(), idx = urutNav(), ujung = (dx > 0 && idx === 0 && false) || (dx < 0 && idx === BNAV.length - 1);
+    p.style.transform = `translateX(${dx * (ujung ? .15 : .45)}px)`; p.style.opacity = String(1 - Math.min(.35, Math.abs(dx) / innerWidth * .6));
+  }, { passive: true });
+  addEventListener('touchend', () => {
+    if (!aktif || arah !== 'h') { aktif = false; return; } aktif = false;
+    const p = pg(), cepat = Math.abs(dx) > 40 && Date.now() - t0 < 250, idx = urutNav();
+    const balik = () => { p.classList.remove('drag'); p.style.transition = 'transform .25s cubic-bezier(.2,.8,.2,1),opacity .25s'; p.style.transform = ''; p.style.opacity = ''; setTimeout(() => p.style.transition = '', 260); };
+    if (!(Math.abs(dx) > innerWidth * .22 || cepat)) return balik();
+    if (dx > 0 && idx === 0) { balik(); return tanyaKeluar(); }
+    const tuju = BNAV[idx + (dx < 0 ? 1 : -1)]; if (!tuju) return balik();
+    p.classList.remove('drag'); p.style.transition = 'transform .18s ease-in,opacity .18s'; p.style.transform = `translateX(${dx < 0 ? -40 : 40}%)`; p.style.opacity = '0';
+    setTimeout(() => {
+      p.style.transition = ''; p.style.transform = ''; p.style.opacity = '';
+      p.dataset.dari = dx < 0 ? 'kanan' : 'kiri'; go(tuju);
+    }, 170);
+  });
+}
+const urutNav = () => { const i = BNAV.indexOf(view); return i < 0 ? BNAV.length - 1 : i; };
+function tanyaKeluar() {
+  if ($('#keluarDlg')) return;
+  const d = document.createElement('div'); d.id = 'keluarDlg';
+  d.innerHTML = `<div class="kd-box"><div class="kd-ic">${logo()}</div><b>Keluar dari aplikasi?</b><div class="mut sm">Data tetap tersimpan.</div>
+    <div class="kd-bt"><button class="btn" id="kdNo">Batal</button><button class="btn bad" id="kdYa">Keluar</button></div></div>`;
+  document.body.appendChild(d); requestAnimationFrame(() => d.classList.add('on'));
+  const tutup = () => { d.classList.remove('on'); setTimeout(() => d.remove(), 250); };
+  d.onclick = e => { if (e.target === d) tutup(); };
+  $('#kdNo', d).onclick = tutup;
+  $('#kdYa', d).onclick = () => {
+    tutup(); keluarApp = true;
+    const n = history.length; if (n > 1) history.go(-(n - 1)); else history.back();
+    setTimeout(() => { try { window.close(); } catch { } }, 600);
+  };
+}
+let keluarApp = false;
+
 // ===== layar masuk =====
 function loginScreen(msg = '') {
-  $('#root').innerHTML = `<div id="login"><div class="card"><div class="brand" style="padding-bottom:10px"><div class="lg">${LOGO}</div><div><b>Kios Misfalah</b><span>Penjualan & gudang pupuk</span></div></div>
+  $('#root').innerHTML = `<div id="login"><div class="card"><div class="brand" style="padding-bottom:10px"><div class="lg">${logo()}</div><div><b>Kios Misfalah</b><span>Penjualan & gudang pupuk</span></div></div>
     <div class="tabs"><span class="chip on" data-m="in">Masuk</span><span class="chip" data-m="up">Daftar</span><span class="chip" data-m="link">Link email</span></div>
     <form id="lf"><div class="fld"><label>Email</label><input class="in" type="email" id="lEm" required autocomplete="email"></div>
     <div class="fld" id="fPw"><label>Kata sandi</label><input class="in" type="password" id="lPw" autocomplete="current-password" minlength="6"></div>
@@ -110,15 +164,15 @@ async function pasang() {
 
 // ===== kerangka =====
 function shell() {
-  $('#root').innerHTML = `<div id="app"><aside id="side"><div class="brand"><div class="lg">${LOGO}</div><div><b>Kios Misfalah</b><span>${esc(S.prof.nama || S.prof.email)} · ${esc(S.prof.role)}</span></div></div>
+  $('#root').innerHTML = `<div id="app"><aside id="side"><div class="brand"><div class="lg">${logo()}</div><div><b>Kios Misfalah</b><span>${esc(S.prof.nama || S.prof.email)} · ${esc(S.prof.role)}</span></div></div>
     ${MENU.map(m => `<button class="nav" data-v="${m[0]}">${m[2]}<span>${m[1]}</span></button>`).join('')}<div class="sp"></div>
     <button class="nav" id="nHit">${I.calc}<span>Hitung cepat</span></button><button class="nav" id="nOut">${I.out}<span>Keluar</span></button></aside>
     <main><div class="top"><div class="search"><span>${I.search}</span><input id="gq" placeholder="Cari nama, NIK, atau no. pesanan…" autocomplete="off"><div class="sres hide" id="gres"></div></div>
       <select class="in sm-in yrsel" id="yr" title="Tahun data"></select>
       <button class="btn ic ${standalone() ? 'hide' : ''}" id="bInst" title="Pasang aplikasi">${I.install}</button>
       <button class="btn ic" id="bHit" title="Hitung cepat">${I.calc}</button></div><div id="page"></div></main></div>
-    <nav id="bnav">${BNAV.map(k => `<button class="nav" data-v="${k}">${{ beranda: I.home, petani: I.users, penjualan: I.cart, gudang: I.box, lainnya: I.more }[k]}<span>${{ beranda: 'Beranda', petani: 'Petani', penjualan: 'Jual', gudang: 'Gudang', lainnya: 'Lainnya' }[k]}</span></button>`).join('')}</nav>
-    <button class="fab" id="fab" title="Tambah penjualan">${I.plus}</button>`;
+    <nav id="bnav">${BNAV.map(k => `<button class="nav" data-v="${k}">${{ beranda: I.home, petani: I.users, penjualan: I.cart, gudang: I.box, lainnya: I.more }[k]}<span>${{ beranda: 'Beranda', petani: 'Petani', penjualan: 'Jual', gudang: 'Gudang', lainnya: 'Lainnya' }[k]}</span></button>`).join('')}</nav>`;
+  pasangGeser();
   $$('[data-v]').forEach(b => b.onclick = () => go(b.dataset.v));
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-bfed],[data-bfdel],[data-copynik]'); if (!b) return;
@@ -127,7 +181,7 @@ function shell() {
     if (b.dataset.bfdel) return hapusBf(b.dataset.bfdel);
     const r = S.bf.find(x => x.id_blmfoto === b.dataset.bfed); if (r) openBelumInput(null, r);
   }, true);
-  $('#fab').onclick = () => openJual(); $('#nHit').onclick = $('#bHit').onclick = openHitung; $('#bInst').onclick = pasang;
+  $('#nHit').onclick = $('#bHit').onclick = openHitung; $('#bInst').onclick = pasang;
   $('#nOut').onclick = async () => { await sb.auth.signOut(); boot(); };
   const gq = $('#gq'), res = $('#gres');
   gq.oninput = debounce(() => {
@@ -166,7 +220,7 @@ function render(keepScroll) {
   const P = { beranda, petani, penjualan, belum, gudang, ambil, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
   const pg = $('#page'), baru = pg.dataset.v !== view; pg.dataset.v = view;
   P(pg);
-  if (baru) { pg.classList.remove('anim'); void pg.offsetWidth; pg.classList.add('anim'); countUp(pg); }   // animasi masuk hanya saat pindah halaman
+  if (baru) { pg.classList.remove('anim', 'dari-kanan', 'dari-kiri'); void pg.offsetWidth; pg.classList.add('anim'); if (pg.dataset.dari) { pg.classList.add('dari-' + pg.dataset.dari); delete pg.dataset.dari; } countUp(pg); }   // animasi masuk hanya saat pindah halaman
   if (keepScroll) restoreScroll(y);
 }
 

@@ -460,24 +460,50 @@ export async function cetakNota(no, mode = 'input', pickId = null) {
 export function openHitung() {
   const s = S.set, koli = Number(s.koli_per_sak) || 0;
   const hs = { urea: Number(s.harga_sak_urea) || 0, phonska: Number(s.harga_sak_phonska) || 0, organik: Number(s.harga_sak_organik) || 0, za: Number(s.harga_sak_za) || 0 };
+  const brt = k => Number(S.byKode[k]?.berat_sak) || 50;
   openDrawer(`
-    <p class="mut">Masukkan jumlah sak. Harga per sak diatur di Pengaturan.</p>
-    ${KODE.map(k => `<div class="card c-${k}" style="margin-bottom:9px;display:flex;align-items:center;gap:10px"><div class="grow"><b><i class="dot"></i>${NAMA[k]}</b><div class="mut sm">${rp(hs[k])} /sak + koli ${rp(koli)}</div></div>
+    <p class="mut">Masukkan jumlah sak. Harga per sak & koli diatur di Pengaturan.</p>
+    ${KODE.map(k => `<div class="card c-${k}" style="margin-bottom:9px;display:flex;align-items:center;gap:10px"><div class="grow"><b><i class="dot"></i>${NAMA[k]}</b><div class="mut sm">${rp(hs[k])} /sak</div></div>
       <input class="in" style="width:80px" type="number" inputmode="numeric" min="0" placeholder="sak" data-h="${k}"><b style="width:92px;text-align:right" data-o="${k}">Rp 0</b></div>`).join('')}
-    <div class="card" style="display:flex;justify-content:space-between"><span class="mut">Total <span id="hSak">0</span> sak</span><b style="font-size:19px" id="hTot">Rp 0</b></div>
+    <div class="card hc-tot">
+      <div class="hc-r"><span class="mut">Harga pupuk · <span id="hSak">0</span> sak</span><b id="hHrg">Rp 0</b></div>
+      <div class="hc-r sm"><span class="mut">Koli: <span id="hSak2">0</span> sak × ${rp(koli)}</span><b id="hKoli">Rp 0</b></div>
+      <div class="hc-r hc-big"><span>Total bayar</span><b id="hTot">Rp 0</b></div>
+    </div>
     <div class="fld"><label>Uang diterima</label><input class="in" id="hBayar" type="number" inputmode="numeric" placeholder="Rp"></div>
-    <div class="card" style="display:flex;justify-content:space-between"><span class="mut">Kembalian</span><b id="hKem">Rp 0</b></div>`,
+    <div class="card" style="display:flex;justify-content:space-between"><span class="mut">Kembalian</span><b id="hKem">Rp 0</b></div>
+    <div class="sec"><h3>Tampilan hasil cetak</h3><span class="mut sm">tanpa koli</span></div>
+    <div class="hc-nota" id="hNota"></div>`,
     {
-      title: 'Hitung cepat', footer: '<button class="btn" id="hReset">Reset</button><button class="btn pri" data-close>Selesai</button>', onOpen: d => {
+      title: 'Hitung cepat', footer: '<button class="btn" id="hReset">Reset</button><button class="btn" id="hCetak">Cetak</button><button class="btn pri" data-close>Selesai</button>', onOpen: d => {
+        const nota = rows => {
+          const tot = rows.reduce((a, r) => a + r.sub, 0);
+          return `<div class="center b">${esc(s.nama_kios || 'Kios')}</div><div class="garis"></div>
+            <table><tr><td>Jenis pupuk<br>harga x volume</td><td style="text-align:right">Jumlah</td></tr></table><div class="garis"></div>
+            ${rows.length ? rows.map(r => `<table><tr><td colspan="2">${esc(r.nama)}</td></tr><tr><td style="padding-left:1em">${n(r.h)} x ${n(r.kg)} kg <span class="mut">(${n(r.q)} sak)</span></td><td style="text-align:right">${n(r.sub)}</td></tr></table>`).join('') : '<div class="mut c">belum ada</div>'}
+            <div class="garis"></div><table><tr><td>Subtotal</td><td style="text-align:right"><b>Rp. ${n(tot)}</b></td></tr></table>`;
+        };
+        let rowsNow = [];
         const calc = () => {
-          let tot = 0, sk = 0;
-          KODE.forEach(k => { const q = Number($(`[data-h=${k}]`, d).value) || 0, v = q * (hs[k] + koli); tot += v; sk += q; $(`[data-o=${k}]`, d).textContent = rp(v); });
-          $('#hSak', d).textContent = sk; $('#hTot', d).textContent = rp(tot);
+          let hrg = 0, sk = 0; rowsNow = [];
+          KODE.forEach(k => {
+            const q = Number($(`[data-h=${k}]`, d).value) || 0, v = q * hs[k]; hrg += v; sk += q; $(`[data-o=${k}]`, d).textContent = rp(v);
+            if (q > 0) { const kg = q * brt(k), h = kg ? Math.round(v / kg) : 0; rowsNow.push({ nama: S.byKode[k]?.nama || NAMA[k], q, kg, h, sub: v }); }
+          });
+          const kl = sk * koli, tot = hrg + kl;
+          $('#hSak', d).textContent = sk; $('#hSak2', d).textContent = sk;
+          $('#hHrg', d).textContent = rp(hrg); $('#hKoli', d).textContent = rp(kl); $('#hTot', d).textContent = rp(tot);
           const b = Number($('#hBayar', d).value) || 0; $('#hKem', d).textContent = rp(Math.max(0, b - tot));
+          $('#hNota', d).innerHTML = nota(rowsNow);
         };
         $$('input', d).forEach(i => i.oninput = calc);
         $('#hReset', d).onclick = () => { $$('input', d).forEach(i => i.value = ''); calc(); };
-        $('[data-h]', d).focus();
+        $('#hCetak', d).onclick = () => {
+          if (!rowsNow.length) return toast('Isi jumlah sak dulu');
+          $('#nota').innerHTML = `<div style="padding-top:6px">${nota(rowsNow).replace(/<span class="mut">\([^)]*\)<\/span>/g, '')}</div><p style="text-align:right;margin-top:6px">${tglJam(new Date())}</p><p style="height:30px"></p>`;
+          document.body.classList.add('printing'); window.print(); setTimeout(() => document.body.classList.remove('printing'), 500);
+        };
+        calc(); $('[data-h]', d).focus();
       }
     });
 }
