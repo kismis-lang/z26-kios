@@ -17,8 +17,9 @@ function applyTheme() {
 }
 applyTheme();
 
+const LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><defs><linearGradient id="zbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34d399"/><stop offset=".55" stop-color="#059669"/><stop offset="1" stop-color="#065f46"/></linearGradient><radialGradient id="zgl" cx=".28" cy=".2" r=".7"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="zlf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#ecfdf5"/><stop offset="1" stop-color="#ffffff"/></linearGradient><linearGradient id="zgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient></defs><rect class="zb" width="120" height="120" rx="32" fill="url(#zbg)"/><rect width="120" height="120" rx="32" fill="url(#zgl)"/><path class="zs" d="M30 84 Q60 72 90 84" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/><path class="zt" d="M60 80 C60 68 60 58 63 46" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path class="zl1" d="M60 66 C45 67 33 57 31 40 C47 39 58 49 60 66Z" fill="url(#zlf)"/><path class="zl2" d="M62 54 C63 37 76 25 93 24 C94 42 81 54 62 54Z" fill="#d1fae5"/><path class="zl2" d="M66 50 L86 30" stroke="#059669" stroke-opacity=".35" stroke-width="2" stroke-linecap="round" fill="none"/><circle class="zg1" cx="44" cy="96" r="6" fill="url(#zgr)"/><circle class="zg2" cx="60" cy="99" r="6" fill="url(#zgr)"/><circle class="zg3" cx="76" cy="96" r="6" fill="url(#zgr)"/></svg>`;
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.17', VERSI_TGL = '7 Nov 2026';
+const VERSI = '1.18', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -53,7 +54,7 @@ addEventListener('popstate', e => {
 
 // ===== layar masuk =====
 function loginScreen(msg = '') {
-  $('#root').innerHTML = `<div id="login"><div class="card"><div class="brand" style="padding-bottom:10px"><div class="lg">z26</div><div><b>Kios Misfalah</b><span>Penjualan & gudang pupuk</span></div></div>
+  $('#root').innerHTML = `<div id="login"><div class="card"><div class="brand" style="padding-bottom:10px"><div class="lg">${LOGO}</div><div><b>Kios Misfalah</b><span>Penjualan & gudang pupuk</span></div></div>
     <div class="tabs"><span class="chip on" data-m="in">Masuk</span><span class="chip" data-m="up">Daftar</span><span class="chip" data-m="link">Link email</span></div>
     <form id="lf"><div class="fld"><label>Email</label><input class="in" type="email" id="lEm" required autocomplete="email"></div>
     <div class="fld" id="fPw"><label>Kata sandi</label><input class="in" type="password" id="lPw" autocomplete="current-password" minlength="6"></div>
@@ -109,7 +110,7 @@ async function pasang() {
 
 // ===== kerangka =====
 function shell() {
-  $('#root').innerHTML = `<div id="app"><aside id="side"><div class="brand"><div class="lg">z26</div><div><b>Kios Misfalah</b><span>${esc(S.prof.nama || S.prof.email)} · ${esc(S.prof.role)}</span></div></div>
+  $('#root').innerHTML = `<div id="app"><aside id="side"><div class="brand"><div class="lg">${LOGO}</div><div><b>Kios Misfalah</b><span>${esc(S.prof.nama || S.prof.email)} · ${esc(S.prof.role)}</span></div></div>
     ${MENU.map(m => `<button class="nav" data-v="${m[0]}">${m[2]}<span>${m[1]}</span></button>`).join('')}<div class="sp"></div>
     <button class="nav" id="nHit">${I.calc}<span>Hitung cepat</span></button><button class="nav" id="nOut">${I.out}<span>Keluar</span></button></aside>
     <main><div class="top"><div class="search"><span>${I.search}</span><input id="gq" placeholder="Cari nama, NIK, atau no. pesanan…" autocomplete="off"><div class="sres hide" id="gres"></div></div>
@@ -163,7 +164,9 @@ function render(keepScroll) {
   const y = window.scrollY; yrFill();
   $$('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === view || (b.closest('#bnav') && b.dataset.v === 'lainnya' && !BNAV.includes(view))));
   const P = { beranda, petani, penjualan, belum, gudang, ambil, luar, poktan, keuangan, pengaturan, lainnya }[view] || beranda;
-  P($('#page'));
+  const pg = $('#page'), baru = pg.dataset.v !== view; pg.dataset.v = view;
+  P(pg);
+  if (baru) { pg.classList.remove('anim'); void pg.offsetWidth; pg.classList.add('anim'); }   // animasi masuk hanya saat pindah halaman
   if (keepScroll) restoreScroll(y);
 }
 
@@ -178,10 +181,18 @@ function beranda(el) {
   const h = ringkasHariIni(), b = totalBelum(), st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000, pk = perPoktan(), hr = penjualan14Hari();
   const AK = KODE.filter(k => S.petani.some(p => p.q[k] > 0 || p.in[k] > 0) || st.some(x => x.k === k && (x.masuk || x.fisik)));
   const today = tglWIB(new Date()), now = new Date();
+  // periode ringkasan: hari ini / minggu ini (mulai Senin) / bulan ini
+  const per = F.per || 'h', dw = (new Date(Date.now() + 7 * 36e5).getUTCDay() + 6) % 7;
+  const mulai = per === 'm' ? tglWIB(new Date(Date.now() - dw * 864e5)) : per === 'b' ? today.slice(0, 8) + '01' : today;
+  const dlm = tw => { const d = tglWIB(tw); return d >= mulai && d <= today; };
+  const PER = { h: 'Hari ini', m: 'Minggu ini', b: 'Bulan ini' };
+  if (per !== 'h') { h.list = S.pen.filter(p => dlm(p.tanggal_waktu)); h.n = h.list.length; h.omzet = h.list.reduce((a, b) => a + Number(b.total_harga), 0); }
   const ambilHr = z(), biHr = z(), inHr = z();
-  S.kg.filter(x => tglWIB(x.tanggal_waktu) === today).forEach(x => KODE.forEach(k => ambilHr[k] += +x[k] || 0));
-  S.bf.filter(x => tglWIB(x.tanggal_waktu) === today).forEach(x => KODE.forEach(k => biHr[k] += +x[k] || 0));
+  S.kg.filter(x => dlm(x.tanggal_waktu)).forEach(x => KODE.forEach(k => ambilHr[k] += +x[k] || 0));
+  S.bf.filter(x => dlm(x.tanggal_waktu)).forEach(x => KODE.forEach(k => biHr[k] += +x[k] || 0));
   h.list.forEach(s => KODE.forEach(k => inHr[k] += s.in[k]));
+  // pengambilan terbaru (per orang per hari)
+  const ev = dataAmbil().flatMap(o => Object.values(o.hari).map(hh => ({ o, hh }))).sort((a, b) => b.hh.last.localeCompare(a.hh.last)).slice(0, 8);
   const tot = { q: z(), in: z(), rc: z(), ak: z() };
   S.petani.forEach(p => KODE.forEach(k => { tot.q[k] += p.q[k]; tot.in[k] += p.in[k]; tot.rc[k] += p.rc[k]; tot.ak[k] += p.ak[k]; }));
   const maxO = Math.max(1, ...hr.map(x => x.omzet));
@@ -195,13 +206,18 @@ function beranda(el) {
   el.innerHTML = `
   <div class="hello"><div><b>${HARI[now.getDay()]}, ${tgl(now)}</b><div class="mut sm">Data tahun ${S.tahun} · ${n(Object.keys(S.byNik).length)} petani · ${n(S.pen.length)} transaksi · <span title="Versi aplikasi">v${VERSI}</span></div></div></div>
 
-  <div class="card"><div class="sec" style="margin-top:0"><h3>Hari ini</h3><button class="btn sm" data-go="penjualan">Penjualan ›</button></div>
+  <div class="card"><div class="sec" style="margin-top:0"><div class="seg">${Object.entries(PER).map(([k, l]) => `<button class="${per === k ? 'on' : ''}" data-per="${k}">${l}</button>`).join('')}</div><button class="btn sm" data-go="penjualan">Penjualan ›</button></div>
     <div class="grid g3">
       <div class="mini"><div class="mut sm">Penjualan</div><div class="big">${rp(h.omzet)}</div><div class="sm">${h.n} transaksi</div></div>
       <div class="mini"><div class="mut sm">Diinput (aplikasi resmi)</div>${lines(inHr, 'belum ada')}</div>
       <div class="mini"><div class="mut sm">Diambil dari gudang</div>${lines(Object.fromEntries(KODE.map(k => [k, ambilHr[k] + biHr[k]])), 'belum ada')}${sum(biHr) ? `<div class="sm bad">termasuk belum input: ${AK.filter(k => biHr[k]).map(k => NAMA[k] + ' ' + n(biHr[k]) + ' kg').join(', ')}</div>` : ''}</div>
     </div>
-    ${h.list.length ? `<div class="list" style="margin-top:6px">${h.list.slice(0, 6).map(saleRow).join('')}</div>` : ''}</div>
+    ${h.list.length ? `<div class="list" style="margin-top:6px">${h.list.slice(0, 6).map(saleRow).join('')}</div>${h.list.length > 6 ? `<div class="mut sm c" style="padding-top:6px">+${h.list.length - 6} transaksi lain di halaman Penjualan</div>` : ''}` : ''}</div>
+
+  <div class="card" style="margin-top:12px"><div class="sec" style="margin-top:0"><h3>Pengambilan terbaru</h3><button class="btn sm" data-go="ambil">Riwayat ›</button></div>
+    <div class="evl">${ev.map(({ o, hh }) => `<div class="ev" data-evk="${esc(o.key)}"><div class="grow t"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span>
+      <div class="sm evp">${KODE.filter(k => hh.v[k] > 0).map(k => `<span class="c-${k}"><i class="dot"></i>${NAMA[k]} <b>${n(sak(hh.v[k], berat(k)))}</b></span>`).join(' ')} <span class="mut">sak</span>${hh.tag.size ? ` <span class="tag ${hh.tag.has('bi') ? 'bad' : 'kng'}">belum input</span>` : ''}</div></div>
+      <div class="r sm"><b>${tglWIB(hh.last) === today ? 'Hari ini' : tgl(hh.last)}</b><div class="mut">${jam(hh.last)}${Object.keys(hh.jam).length > 1 ? ` · ${Object.keys(hh.jam).length}×` : ''}</div></div></div>`).join('') || '<span class="mut">Belum ada pengambilan</span>'}</div></div>
 
   <div class="grid g2" style="margin-top:12px">
     <div class="card"><div class="sec" style="margin-top:0"><h3><span class="warn">●</span> Belum ambil <span class="mut sm">titipan petani di gudang</span></h3><button class="btn sm" data-go="belum:ba">${S.pen.filter(s => sum(tanpaOrg(s.ba)) > 0).length} nota ›</button></div>
@@ -232,12 +248,16 @@ function beranda(el) {
   wireCommon(el);
   $$('[data-nik]', el).forEach(c => c.onclick = () => hooks.openNik(c.dataset.nik));
   $$('[data-pok]', el).forEach(c => c.onclick = () => { F.q = ''; F.kom = ''; F.st = ''; F.poktan = c.dataset.pok; F.lim = 60; go('petani', { force: true }); });
+  $$('[data-per]', el).forEach(c => c.onclick = () => { F.per = c.dataset.per; beranda(el); });
+  $$('[data-evk]', el).forEach(c => c.onclick = () => { const o = ev.find(x => x.o.key === c.dataset.evk)?.o; if (!o) return; F.aq = o.nama; F.aj = ''; abOpen.add(o.key); go('ambil'); });
 }
 const saleRow = x => `<div class="li" data-no="${esc(x.no_pesanan)}"><div class="av">${esc(ini(x.nama_petani))}</div><div class="grow"><div class="t b">${esc(x.nama_petani)} <span class="mut sm">· ${esc(x.komoditas)}</span></div><div class="mut sm t">${esc(x.no_pesanan)} · ${tglJam(x.tanggal_waktu)}</div></div>
+  ${(() => { const p = S.pid[x.id_data]; return p ? `<button class="btn xs pn" data-pnik="${esc(p.nik || 'id' + p.id_data)}" title="Buka data petani">${I.users}</button>` : ''; })()}
   <div class="r"><div class="b">${rp(x.total_harga)}</div>${sum(x.ba) > 0 ? '<span class="tag warn">belum ambil</span>' : '<span class="tag ok">selesai</span>'}</div></div>`;
 function wireCommon(el) {
   $$('[data-go]', el).forEach(c => c.onclick = () => { const [v, s] = c.dataset.go.split(':'); if (s) F.bs = s; go(v, { force: true }); });
   $$('.li[data-no]', el).forEach(c => c.onclick = () => openSale(c.dataset.no));
+  $$('[data-pnik]', el).forEach(b => b.onclick = e => { e.stopPropagation(); hooks.openNik(b.dataset.pnik); });
 }
 
 // ===== petani (1 NIK = 1 baris; klik > poktan > komoditas > pupuk, semuanya terbuka ke bawah) =====
@@ -448,6 +468,7 @@ function belum(el) {
   $$('[data-jual]', el).forEach(b => b.onclick = e => { e.stopPropagation(); openJual(S.pid[b.dataset.jual]); });
   $$('.li[data-pid]', el).forEach(c => c.onclick = () => hooks.openNik(S.pid[c.dataset.pid].nik || 'id' + c.dataset.pid));
   $$('.li[data-no]', el).forEach(c => c.onclick = () => openSale(c.dataset.no));
+  $$('[data-pnik]', el).forEach(b => b.onclick = e => { e.stopPropagation(); hooks.openNik(b.dataset.pnik); });
   const a = $('#biAdd'); if (a) a.onclick = () => openBelumInput();
 }
 
@@ -535,16 +556,16 @@ async function hapusStok(id) {
 // ===== riwayat pengambilan gudang (per petani/pembeli, per tanggal, terbaru di atas) =====
 function dataAmbil() {
   const M = {};
-  const orang = (key, nama, ket, jenis) => M[key] ||= { key, nama, ket, jenis, q: z(), tot: z(), hari: {}, last: '' };
+  const orang = (key, nama, ket, jenis, rs) => M[key] ||= { key, nama, ket, jenis, rs, q: z(), tot: z(), hari: {}, last: '' };
   const tambah = (o, tw, v, tag) => {
     const d = tglWIB(tw); if (!d) return;
     const h = o.hari[d] ||= { d, v: z(), tag: new Set(), jam: {} };
     const jm = jam(tw), J = h.jam[jm] ||= { jm, v: z(), tag: new Set() };
     for (const k of KODE) { const x = +v[k] || 0; h.v[k] += x; J.v[k] += x; o.tot[k] += x; }
-    if (tag) { h.tag.add(tag); J.tag.add(tag); } if (String(tw) > o.last) o.last = String(tw);
+    if (tag) { h.tag.add(tag); J.tag.add(tag); } if (String(tw) > o.last) o.last = String(tw); if (String(tw) > (h.last || '')) h.last = String(tw);
   };
   for (const [nik, rs] of Object.entries(S.byNik)) {
-    const o = orang('p:' + nik, rs[0].nama, [...new Set(rs.map(r => r.poktan).filter(Boolean))].join(', '), 'p');
+    const o = orang('p:' + nik, rs[0].nama, [...new Set(rs.map(r => r.poktan).filter(Boolean))].join(', '), 'p', rs);
     for (const r of rs) for (const k of KODE) o.q[k] += r.q[k];
   }
   const pOf = id => { const p = S.pid[id]; return p && M['p:' + (p.nik || 'id' + p.id_data)]; };
@@ -573,10 +594,12 @@ function ambil(el) {
   const kartu = o => {
     const hari = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d)), buka = abOpen.has(o.key);
     const kuota = sum(o.q) ? `<div class="sm"><span class="mut">Kuota</span> ${pupuk(o.q)} <span class="mut">sak</span></div>` : '';
+    const pk = o.rs ? [...byPok(o.rs)].map(([nm, rs]) => [nm, dptInfo(rs)]).filter(x => x[1]) : [];
+    const dpt = pk.length ? `<div class="sm dptl"><span class="mut">DPT</span> ${pk.map(([nm, d]) => `<span>${pk.length > 1 ? `<span class="mut">${esc(nm)}</span> ` : ''}<b>${esc(d)}</b></span>`).join(' ')}</div>` : '';
     return `<div class="ab ${buka ? 'on' : ''}">
       <div class="abh click" data-abk="${esc(o.key)}"><span class="grow"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span></span>
         ${o.jenis === 'p' ? `<button class="btn xs" data-abnik="${esc(o.key.slice(2))}" title="Buka data petani">${I.users}</button>` : ''}</div>
-      ${kuota}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
+      ${kuota}${dpt}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
       <div class="sm click abs" data-abk="${esc(o.key)}"><span class="mut">Terakhir ${tgl(o.last)} ${jam(o.last)} · ${hari.length} tanggal</span><span class="chv">›</span></div>
       <div class="abd">${buka ? hari.map(h => baris(o, h)).join('') : ''}</div></div>`;
   };
@@ -780,6 +803,10 @@ async function impor(file) {
 
 // ===== mulai =====
 let booting = false;
+function tutupSplash() {
+  const el = document.getElementById('splash'); if (!el || el.dataset.t) return; el.dataset.t = 1;
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 450); }, Math.max(0, 1300 - performance.now()));
+}
 async function boot(keep) {
   if (booting) return; booting = true;
   try {
@@ -796,7 +823,7 @@ async function boot(keep) {
     render();
     if (nav.scroll[nav.eid]) restoreScroll(nav.scroll[nav.eid]);
   } catch (e) { console.error(e); $('#root').innerHTML = `<div class="c bad" style="padding:40px">Gagal memuat: ${esc(e.message)}<br><button class="btn" onclick="location.reload()">Coba lagi</button></div>`; }
-  finally { booting = false; }
+  finally { booting = false; tutupSplash(); }
 }
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_IN' && !S.loaded) boot(); if (ev === 'SIGNED_OUT') { S.loaded = false; boot(); } });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
