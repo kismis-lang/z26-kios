@@ -416,3 +416,4 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 @keyframes drop{from{opacity:0;transform:translateY(-6px)}}
 @keyframes pop{from{transform:scale(.85);opacity:.4}}
 .ev .r{min-width:92px}
+.ev>.grow{flex:1;min-width:0}
