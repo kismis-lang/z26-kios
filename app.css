@@ -522,3 +522,21 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 @media (max-width:899px){.gsum.n3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.gsum.n3 .gs{padding:10px 9px}.gsum.n3 .gs-v b{font-size:22px}.gsum.n3 .gs-f{flex-direction:column;gap:0}.gsum.n3 .gs-h{font-size:12px}.gsum.n3 .gs .tag{display:none}}
 @media (min-width:900px){.gt .gti.big{grid-column:span 4}.gsum.n3{grid-template-columns:repeat(3,minmax(0,1fr))}.gml{grid-template-columns:1fr 1fr;column-gap:24px}.gml .gm:nth-last-child(2){border-bottom:0}}
 .gm>.grow{flex:1;min-width:0}
+/* ===== v22 pengaturan ringkas & hitung cepat ===== */
+.pset{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:900px){.pset{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.pset .pw{grid-column:span 2}}
+.pset h3{margin:0 0 8px}
+.ps-r{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:7px 0;flex-wrap:wrap}.ps-r .in{flex:1;min-width:0}
+.ht th{white-space:nowrap}.ht th .mut{font-weight:400;text-transform:none}.ht td{vertical-align:middle}
+.ht .in{width:100%;min-width:76px;text-align:right;padding:7px 8px}
+.pset .row2{margin-top:10px}
+.hc-opt{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+.hc-row{margin-bottom:8px;display:flex;align-items:center;gap:10px;padding:10px 12px}
+.hc-o{width:96px;text-align:right;font-variant-numeric:tabular-nums}
+.hc-kem{display:flex;align-items:center;font-weight:700;background:var(--bg2)}
+.hn-logo{width:58px;height:58px;margin:2px auto 6px}.hn-logo svg{width:100%;height:100%;display:block}
+.hn-info td:first-child{width:62px;color:#555}.hc-nota .hn-info td{padding:1px 0}
+#nota .hn-logo{width:60px;height:60px;margin:0 auto 6px}#nota .hn-info td:first-child{width:62px}
+.hc-nota td,.hc-nota th,.hc-nota tr{border:0!important;background:none!important}
+.ht th{white-space:normal;font-size:10.5px;line-height:1.2;vertical-align:bottom}.ht td:first-child{white-space:nowrap;font-size:12.5px}
+.ht .in{min-width:62px;padding:7px 6px;font-size:13.5px}.ht td{padding:5px 3px}

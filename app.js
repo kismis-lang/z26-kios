@@ -21,7 +21,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
 const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.21', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.22', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -861,29 +861,60 @@ function lainnya(el) {
 // ===== pengaturan =====
 async function pengaturan(el) {
   const th = lsGet('theme', 'light'), ac = lsGet('accent', 'hijau');
-  el.innerHTML = `<div class="bar"><h2>Pengaturan</h2></div><div class="grid g2">
-  <div class="card"><h3>Tampilan</h3><div class="bar" style="margin-top:8px"><span class="chip ${th === 'light' ? 'on' : ''}" data-th="light">Terang</span><span class="chip ${th === 'dark' ? 'on' : ''}" data-th="dark">Gelap</span></div>
-    <div class="bar">${[['hijau', '#16a34a'], ['biru', '#2563eb'], ['oranye', '#ea580c']].map(([k, c]) => `<span class="chip ${ac === k ? 'on' : ''}" data-ac="${k}"><i class="dot" style="--c:${c}"></i>${k}</span>`).join('')}</div>
-    ${standalone() ? '' : `<button class="btn sm" id="sInst">${I.install} Pasang aplikasi di perangkat ini</button>`}</div>
-  <div class="card"><h3>Akun</h3><p class="mut">${esc(S.user.email)} · ${esc(S.prof.role)}</p><div class="fld"><label>Ganti kata sandi</label><input class="in" type="password" id="np" minlength="6" placeholder="kata sandi baru"></div><button class="btn" id="npS">Simpan kata sandi</button></div>
-  ${isAdmin() ? `<div class="card"><h3>Harga & nota</h3><div id="hargaF"></div></div>` : ''}
-  ${isAdmin() ? `<div class="card"><h3>Berkas lama (AppSheet)</h3><p class="mut sm">Unggah tanda tangan (Data_Images) serta BAST & nota penebusan (z26/BAST, z26/Nota_penebusan). File dikenali otomatis dari namanya.</p><button class="btn pri" id="ibOpen">${I.upload} Impor berkas lama</button></div>` : ''}
+  el.innerHTML = `<div class="bar"><h2>Pengaturan</h2></div><div class="pset">
+  ${isAdmin() ? `<div class="card pw"><div class="sec" style="margin-top:0"><h3>Harga</h3><div class="seg" id="hUnit"><button data-u="kg">Per kg</button><button data-u="sak">Per sak</button></div></div><div id="hargaF"></div></div>` : ''}
+  <div class="card"><h3>Tampilan & akun</h3>
+    <div class="ps-r"><span class="mut sm">Tema</span><div class="seg">${[['light', 'Terang'], ['dark', 'Gelap']].map(([k, l]) => `<button class="${th === k ? 'on' : ''}" data-th="${k}">${l}</button>`).join('')}</div></div>
+    <div class="ps-r"><span class="mut sm">Warna</span><div class="chips">${[['hijau', '#16a34a'], ['biru', '#2563eb'], ['oranye', '#ea580c']].map(([k, c]) => `<span class="chip ${ac === k ? 'on' : ''}" data-ac="${k}"><i class="dot" style="--c:${c}"></i>${k}</span>`).join('')}</div></div>
+    <div class="ps-r"><span class="mut sm">${esc(S.user.email)} · ${esc(S.prof.role)}</span></div>
+    <div class="ps-r"><input class="in" type="password" id="np" minlength="6" placeholder="Kata sandi baru"><button class="btn sm" id="npS">Ganti</button></div>
+    ${standalone() ? '' : `<button class="btn sm" id="sInst" style="margin-top:6px">${I.install} Pasang aplikasi di perangkat ini</button>`}</div>
   ${isAdmin() ? `<div class="card"><h3>Pengguna</h3><div id="usr" class="list"><span class="mut">Memuat…</span></div></div>
-  <div class="card"><h3>Impor data lama (JSON migrasi)</h3><p class="mut sm">Pilih file <b>import_z26.json</b> hasil migrasi dari AppSheet. Aman diulang (data yang sama ditimpa, tidak dobel).</p><input type="file" id="imp" accept=".json"><div id="impLog" class="sm mut" style="margin-top:8px;white-space:pre-line"></div></div>` : ''}</div>`;
+  <div class="card"><details class="gx" style="margin:0;border:0;padding:0"><summary>Data lama (AppSheet)</summary>
+    <p class="mut sm">Berkas: tanda tangan (Data_Images), BAST & nota penebusan. File dikenali otomatis dari namanya.</p><button class="btn sm" id="ibOpen">${I.upload} Impor berkas lama</button>
+    <p class="mut sm" style="margin-top:10px">Data: file <b>import_z26.json</b> hasil migrasi. Aman diulang (tidak dobel).</p><input type="file" id="imp" accept=".json"><div id="impLog" class="sm mut" style="margin-top:8px;white-space:pre-line"></div></details></div>` : ''}
+  </div>`;
   $$('[data-th]', el).forEach(c => c.onclick = () => { lsSet('theme', c.dataset.th); applyTheme(); pengaturan(el); });
   $$('[data-ac]', el).forEach(c => c.onclick = () => { lsSet('accent', c.dataset.ac); applyTheme(); pengaturan(el); });
   const si = $('#sInst'); if (si) si.onclick = pasang;
   const ib = $('#ibOpen'); if (ib) ib.onclick = openImporBerkas;
   $('#npS').onclick = async () => { const v = $('#np').value; if (v.length < 6) return toast('Minimal 6 karakter'); const { error } = await sb.auth.updateUser({ password: v }); toast(error ? error.message : 'Kata sandi diperbarui'); };
   if (isAdmin()) {
-    const keys = [['nama_kios', 'Nama kios'], ['kode_kios', 'Kode kios'], ['alamat_kios', 'Alamat'], ['judul_nota_1', 'Judul nota 1'], ['judul_nota_2', 'Judul nota 2'], ['koli_per_sak', 'Koli per sak'], ['harga_sak_urea', 'Harga/sak Urea'], ['harga_sak_phonska', 'Harga/sak Phonska'], ['harga_sak_organik', 'Harga/sak Organik'], ['harga_sak_za', 'Harga/sak ZA'], ['batas_stok_menipis', 'Batas stok menipis (kg)']];
-    $('#hargaF').innerHTML = `<p class="sm mut">Harga jual per kg</p>${KODE.map(k => S.byKode[k]).map(p => `<div class="row2"><div class="fld"><label>${esc(p.nama)} jual /kg</label><input class="in" type="number" data-pj="${p.id}" value="${p.harga_jual}"></div><div class="fld"><label>Luar kelompok /kg</label><input class="in" type="number" data-pl="${p.id}" value="${p.harga_luar}"></div></div>`).join('')}
-      ${keys.map(([k, l]) => `<div class="fld"><label>${l}</label><input class="in" data-set="${k}" value="${esc(S.set[k] ?? '')}"></div>`).join('')}<button class="btn pri" id="hS">Simpan</button>`;
-    $('#hS').onclick = async () => {
-      for (const p of S.produk) { const j = $(`[data-pj="${p.id}"]`), l = $(`[data-pl="${p.id}"]`); if (j) await sb.from('produk').update({ harga_jual: Number(j.value), harga_luar: Number(l.value) }).eq('id', p.id); }
-      for (const i of $$('[data-set]')) await sb.from('pengaturan').upsert({ kunci: i.dataset.set, nilai: i.value });
+    // harga: disimpan apa adanya (jual & luar per kg, hitung cepat per sak); tampilan bisa per kg atau per sak
+    const brt = k => Number(S.byKode[k]?.berat_sak) || 50;
+    const kol = [['jual', 'Nota resmi', 'kg'], ['sak', 'Hitung cepat', 'sak'], ['luar', 'Luar klpk', 'kg']];
+    const asli = (k, c) => c === 'jual' ? Number(S.byKode[k].harga_jual) || 0 : c === 'luar' ? Number(S.byKode[k].harga_luar) || 0 : Number(S.set['harga_sak_' + k]) || 0;
+    const tampil = (k, c, u) => { const v = asli(k, c), dasar = kol.find(x => x[0] === c)[2]; return dasar === u ? v : u === 'sak' ? v * brt(k) : Math.round(v / brt(k) * 100) / 100; };
+    const lain = [['koli_per_sak', 'Koli per sak (Rp)'], ['batas_stok_menipis', 'Batas stok menipis (kg)']];
+    const nota = [['nama_kios', 'Nama kios'], ['kode_kios', 'Kode kios'], ['alamat_kios', 'Alamat'], ['judul_nota_1', 'Judul nota 1'], ['judul_nota_2', 'Judul nota 2']];
+    const isi = () => {
+      const u = lsGet('hUnit', 'kg');
+      $$('#hUnit button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
+      $('#hargaF').innerHTML = `<div class="tw"><table class="dn ht"><tr><th>Pupuk</th>${kol.map(c => `<th class="num">${c[1]}<div class="mut">/${u}</div></th>`).join('')}</tr>
+        ${KODE.filter(k => S.byKode[k]).map(k => `<tr class="c-${k}"><td><i class="dot"></i>${NAMA[k]}<div class="mut sm">${brt(k)} kg</div></td>${kol.map(([c]) => `<td><input class="in" type="number" inputmode="decimal" data-hk="${k}|${c}" data-u="${u}" value="${tampil(k, c, u)}"></td>`).join('')}</tr>`).join('')}</table></div>
+        <div class="row2">${lain.map(([k, l]) => `<div class="fld"><label>${l}</label><input class="in" type="number" data-set="${k}" value="${esc(S.set[k] ?? '')}"></div>`).join('')}</div>
+        <details class="gx"><summary>Identitas kios & judul nota</summary><div class="row2">${nota.map(([k, l]) => `<div class="fld"><label>${l}</label><input class="in" data-set="${k}" value="${esc(S.set[k] ?? '')}"></div>`).join('')}</div></details>
+        <button class="btn pri" id="hS" style="margin-top:10px">Simpan</button>`;
+      $('#hS').onclick = simpan;
+    };
+    const simpan = async () => {
+      const ubah = {};
+      for (const i of $$('[data-hk]')) {
+        const [k, c] = i.dataset.hk.split('|'), u = i.dataset.u; if (String(tampil(k, c, u)) === i.value) continue;   // hanya yang diubah
+        const dasar = kol.find(x => x[0] === c)[2], v = Number(i.value) || 0;
+        const simpanV = dasar === u ? v : dasar === 'kg' ? Math.round(v / brt(k) * 100) / 100 : Math.round(v * brt(k));
+        (ubah[k] ||= {})[c] = simpanV;
+      }
+      for (const [k, o] of Object.entries(ubah)) {
+        const patch = {}; if ('jual' in o) patch.harga_jual = o.jual; if ('luar' in o) patch.harga_luar = o.luar;
+        if (Object.keys(patch).length) { const { error } = await sb.from('produk').update(patch).eq('id', S.byKode[k].id); if (error) return toast(error.message); }
+        if ('sak' in o) await sb.from('pengaturan').upsert({ kunci: 'harga_sak_' + k, nilai: String(o.sak) });
+      }
+      for (const i of $$('[data-set]')) if ((S.set[i.dataset.set] ?? '') !== i.value) await sb.from('pengaturan').upsert({ kunci: i.dataset.set, nilai: i.value });
       toast('Tersimpan'); await boot(true);
     };
+    $$('#hUnit button').forEach(b => b.onclick = () => { lsSet('hUnit', b.dataset.u); isi(); });
+    isi();
   }
   if (isAdmin()) {
     const { data } = await sb.from('profiles').select('*').order('created_at');

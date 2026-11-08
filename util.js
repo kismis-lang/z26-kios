@@ -74,3 +74,6 @@ export const I = {
   copy: P('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>'),
   map: P('<path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'),
 };
+
+// logo hitam-putih untuk cetak (printer thermal)
+export const LOGO_MONO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="32" fill="#000"/><path d="M30 84 Q60 72 90 84" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M60 80 C60 68 60 58 63 46" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M60 66 C45 67 33 57 31 40 C47 39 58 49 60 66Z" fill="#fff"/><path d="M62 54 C63 37 76 25 93 24 C94 42 81 54 62 54Z" fill="#fff"/><path d="M66 50 L86 30" stroke="#000" stroke-width="2.5" stroke-linecap="round"/><circle cx="44" cy="96" r="6" fill="#fff"/><circle cx="60" cy="99" r="6" fill="#fff"/><circle cx="76" cy="96" r="6" fill="#fff"/></svg>';
