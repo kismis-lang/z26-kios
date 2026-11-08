@@ -21,7 +21,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
 const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.23', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.24', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
