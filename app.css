@@ -540,3 +540,8 @@ table.bt tr.click{cursor:pointer}table.bt tr.click:active{background:var(--a-sof
 .hc-nota td,.hc-nota th,.hc-nota tr{border:0!important;background:none!important}
 .ht th{white-space:normal;font-size:10.5px;line-height:1.2;vertical-align:bottom}.ht td:first-child{white-space:nowrap;font-size:12.5px}
 .ht .in{min-width:62px;padding:7px 6px;font-size:13.5px}.ht td{padding:5px 3px}
+.hn-t{width:100%;table-layout:fixed;border-collapse:collapse}.hn-t td{padding:1px 0;white-space:nowrap}
+.hn-t .hn-d{padding-left:1em;overflow:hidden;text-overflow:ellipsis}.hn-t .hn-rp{text-align:left}.hn-t .hn-v{text-align:right;font-variant-numeric:tabular-nums}
+.hn-t .hn-tot td{font-weight:700;padding-top:3px}
+#nota .hn-t{font-size:12.5px}#nota .hn-t col:nth-child(2){width:22px!important}#nota .hn-t col:nth-child(3){width:66px!important}#nota .hn-t .hn-d{padding-left:.6em}
+#nota .hn-t .hn-d{white-space:normal;overflow:visible}#nota .hn-t col:nth-child(2){width:20px!important}#nota .hn-t col:nth-child(3){width:60px!important}

@@ -486,17 +486,17 @@ export function openHitung() {
           return `<div class="hn-logo">${LOGO_MONO}</div>
             <table class="hn-info">${nm ? `<tr><td>Pembeli</td><td>${esc(nm)}</td></tr>` : ''}<tr><td>Tanggal</td><td>${tglJam(now)}</td></tr></table>
             <div class="garis"></div>
-            ${rows.length ? rows.map(r => `<table><tr><td colspan="2">${esc(r.nama)}</td></tr><tr><td style="padding-left:1em">${n(r.h)} x ${n(r.kg)} kg <span class="mut">(${n(r.q)} sak)</span></td><td style="text-align:right">${n(r.sub)}</td></tr></table>`).join('') : '<div class="mut c">belum ada</div>'}
+            ${rows.length ? `<table class="hn-t"><colgroup><col><col style="width:26px"><col style="width:78px"></colgroup>${rows.map(r => `<tr><td colspan="3">Pupuk ${esc(NAMA[r.k])}</td></tr><tr><td class="hn-d">${n(r.q)} sak x Rp. ${n(r.hs)}</td><td class="hn-rp">Rp.</td><td class="hn-v">${n(r.sub)}</td></tr>`).join('')}</table>` : '<div class="mut c">belum ada</div>'}
             <div class="garis"></div>
-            ${kl ? `<table><tr><td>Harga pupuk</td><td style="text-align:right">${n(tot)}</td></tr><tr><td>Koli</td><td style="text-align:right">${n(kl)}</td></tr></table>` : ''}
-            <table><tr><td><b>Total</b></td><td style="text-align:right"><b>Rp. ${n(tot + kl)}</b></td></tr></table>`;
+            <table class="hn-t"><colgroup><col><col style="width:26px"><col style="width:78px"></colgroup>${kl ? `<tr><td>Harga pupuk</td><td class="hn-rp">Rp.</td><td class="hn-v">${n(tot)}</td></tr><tr><td colspan="3">Koli</td></tr><tr><td class="hn-d">${n(rows.reduce((a, r) => a + r.q, 0))} sak x Rp. ${n(koli)}</td><td class="hn-rp">Rp.</td><td class="hn-v">${n(kl)}</td></tr>` : ''}
+            <tr class="hn-tot"><td>Total</td><td class="hn-rp">Rp.</td><td class="hn-v">${n(tot + kl)}</td></tr></table>`;
         };
         const calc = () => {
           let hrg = 0, sk = 0; rowsNow = [];
           KODE.forEach(k => {
             const hs = hSak(k, mode); $(`[data-hs=${k}]`, d).textContent = `${rp(hs)} /sak`;
             const q = Number($(`[data-h=${k}]`, d).value) || 0, v = q * hs; hrg += v; sk += q; $(`[data-o=${k}]`, d).textContent = rp(v);
-            if (q > 0) { const kg = q * brt(k); rowsNow.push({ nama: S.byKode[k]?.nama || NAMA[k], q, kg, h: kg ? Math.round(v / kg) : 0, sub: v }); }
+            if (q > 0) rowsNow.push({ k, q, hs, sub: v });
           });
           const kl = pakaiKoli ? sk * koli : 0, tot = hrg + kl; totNow = tot;
           $('#hSak', d).textContent = sk; $('#hSak2', d).textContent = sk; $('#hKoliR', d).style.display = pakaiKoli ? '' : 'none';
@@ -512,7 +512,7 @@ export function openHitung() {
         $('#hReset', d).onclick = () => { $$('input', d).forEach(i => i.value = ''); calc(); };
         $('#hCetak', d).onclick = () => {
           if (!rowsNow.length) return toast('Isi jumlah sak dulu');
-          $('#nota').innerHTML = `<div class="hn-print">${$('#hNota', d).innerHTML.replace(/<span class="mut">\([^)]*\)<\/span>/g, '')}</div><p style="height:30px"></p>`;
+          $('#nota').innerHTML = `<div class="hn-print">${$('#hNota', d).innerHTML}</div><p style="height:30px"></p>`;
           document.body.classList.add('printing'); window.print(); setTimeout(() => document.body.classList.remove('printing'), 500);
         };
         calc(); $('[data-h]', d).focus();
