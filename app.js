@@ -21,7 +21,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
 const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.25', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.26', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -201,11 +201,11 @@ function shell() {
   };
   hooks.refresh = () => render(true); hooks.fOpen = F.open;
   hooks.openNik = nik => {
-    F.q = ''; F.poktan = ''; F.kom = ''; F.st = '';
+    const nk = S.byNik[nik]?.[0]?.nik;
+    F.q = nk || ''; F.poktan = ''; F.kom = ''; F.st = '';               // langsung saring ke petani ini (cepat, tidak merender ratusan baris)
     for (const o of [...F.open]) if (S.byNik[o]) F.open.delete(o);       // hanya 1 petani terbuka
-    F.open.add(nik); F.focus = nik;
-    const keys = Object.entries(S.byNik).sort((a, b) => a[1][0].nama.localeCompare(b[1][0].nama)).map(x => x[0]);
-    F.lim = Math.max(60, keys.indexOf(nik) + 30);                        // pastikan barisnya ikut tampil
+    F.open.add(nik); F.focus = nik; F.lim = 60;
+    if (!nk) { const keys = Object.entries(S.byNik).sort((a, b) => a[1][0].nama.localeCompare(b[1][0].nama)).map(x => x[0]); F.lim = Math.max(60, keys.indexOf(nik) + 30); }
     if (view === 'petani') render(); else go('petani', { force: true });
   };
 }
