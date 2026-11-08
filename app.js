@@ -21,7 +21,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
 const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.24', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.25', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -559,7 +559,7 @@ function gudang(el) {
       <div class="gs-bar" title="depan / belakang"><i style="width:${o.fisik > 0 ? dep : 0}%"></i></div>
       <div class="gs-f sm"><span class="mut">Lebih/kurang</span><b class="${tanda(o.lebih)}">${pm(sak(o.lebih, berat(o.k)))} sak</b></div></button>`;
   };
-  const baris = (l, v, k, cls = '', tip = '') => `<div class="gr ${cls}"><span>${l}${tip ? `<small>${tip}</small>` : ''}</span><b>${sk(v, k)} <small>sak</small></b><em>${n(v)} kg</em></div>`;
+  const baris = (l, v, k, cls = '', tip = '') => `<div class="gal ${cls}"><span>${l}${tip ? `<small>${tip}</small>` : ''}</span><b>${sk(v, k)} <small>sak</small></b><em>${n(v)} kg</em></div>`;
   const detail = !x ? '' : (() => {
     const k = x.k;
     return `<div class="card gdet c-${k}">
@@ -707,11 +707,12 @@ function ambil(el) {
     const hari = Object.values(o.hari).sort((a, b) => b.d.localeCompare(a.d)), buka = abOpen.has(o.key);
     const kuota = sum(o.q) ? `<div class="sm"><span class="mut">Kuota</span> ${pupuk(o.q)} <span class="mut">sak</span></div>` : '';
     const pk = o.rs ? [...byPok(o.rs)].map(([nm, rs]) => [nm, dptInfo(rs)]).filter(x => x[1]) : [];
-    const dpt = pk.length ? `<div class="sm dptl"><span class="mut">DPT</span> ${pk.map(([nm, d]) => `<span>${pk.length > 1 ? `<span class="mut">${esc(nm)}</span> ` : ''}<b>${esc(d)}</b></span>`).join(' ')}</div>` : '';
+    const dp = Object.fromEntries(pk);
+    const pkH = o.rs ? [...byPok(o.rs)].map(([nm]) => `<span class="mut sm">${esc(nm)}${dp[nm] ? ` <small class="dptk">${esc(dp[nm])}</small>` : ''}</span>`).join(' · ') : `<span class="mut sm">${esc(o.ket)}</span>`;
     return `<div class="ab ${buka ? 'on' : ''}">
-      <div class="abh click" data-abk="${esc(o.key)}"><span class="grow"><b>${esc(o.nama)}</b> <span class="mut sm">${esc(o.ket)}</span></span>
+      <div class="abh click" data-abk="${esc(o.key)}"><span class="grow"><b>${esc(o.nama)}</b> ${pkH}</span>
         ${o.jenis === 'p' ? `<button class="btn xs" data-abnik="${esc(o.key.slice(2))}" title="Buka data petani">${I.users}</button>` : ''}</div>
-      ${kuota}${dpt}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
+      ${kuota}<div class="sm"><span class="mut">Diambil</span> ${pupuk(o.tot)} <span class="mut">sak</span></div>
       <div class="sm click abs" data-abk="${esc(o.key)}"><span class="mut">Terakhir ${tgl(o.last)} ${jam(o.last)} · ${hari.length} tanggal</span><span class="chv">›</span></div>
       <div class="abd">${buka ? hari.map(h => baris(o, h)).join('') : ''}</div></div>`;
   };
