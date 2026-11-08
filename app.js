@@ -21,7 +21,7 @@ const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
 let logoN = 0;   // id gradien dibuat unik per logo, supaya tetap tampil walau logo lain tersembunyi
 const logo = () => { const u = 'L' + (++logoN); return LOGO_SVG.replace(/id="(z\w+)"/g, `id="$1${u}"`).replace(/url\(#(z\w+)\)/g, `url(#$1${u})`); };
 // nomor versi: dinaikkan setiap ada perubahan yang diunggah
-const VERSI = '1.20', VERSI_TGL = '8 Nov 2026';
+const VERSI = '1.21', VERSI_TGL = '8 Nov 2026';
 
 const MENU = [
   ['beranda', 'Beranda', I.home], ['petani', 'Petani', I.users], ['penjualan', 'Penjualan', I.cart], ['belum', 'Belum ambil / input', I.alert],
@@ -229,10 +229,10 @@ const geraklah = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 function countUp(root) {
   if (!geraklah) return;
   const L = $$('[data-cnt]', root).filter(e => Math.abs(+e.dataset.cnt) > 0).slice(0, 40); if (!L.length) return;
-  const fm = e => e.dataset.f === 'rp' ? rp : n, t0 = performance.now(), D = 900;
+  const fm = e => e.dataset.f === 'rp' ? rp : n, t0 = performance.now(), D = 900, asli = L.map(x => x.textContent);
   const step = t => {
     const p = Math.min(1, (t - t0) / D), e = 1 - Math.pow(1 - p, 3);
-    for (const x of L) x.textContent = fm(x)(Math.round(+x.dataset.cnt * e));
+    L.forEach((x, i) => x.textContent = p >= 1 ? asli[i] : fm(x)(Math.round(+x.dataset.cnt * e)));
     if (p < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -542,21 +542,68 @@ const docBtn = (s, k, lab) => { const p = s[k + '_path']; return (p ? `<button c
   + (isAdmin() ? `<label class="btn xs2 ${p ? '' : 'mutb'}" title="${p ? 'Ganti' : 'Unggah'} ${lab}">${p ? I.edit : I.upload + ' ' + lab}<input type="file" hidden accept="image/*,application/pdf" data-dup="${esc(s.id_stok)}|${k}"></label>` : ''); };
 function gudang(el) {
   const st = stokProduk(), batas = Number(S.set.batas_stok_menipis) || 2000;
-  const row = (l, v, k, cls = '') => `<tr><td>${l}</td><td class="num ${cls}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(k)))} sak</td></tr>`;
+  const aktif = st.filter(x => x.masuk || x.fisik || x.awal || x.input || x.lkIn);
+  const L = aktif.length ? aktif : st;
+  if (!L.some(x => x.k === F.gk)) F.gk = L[0]?.k;
+  const x = L.find(o => o.k === F.gk);
+  const sk = (v, k) => n(sak(v, berat(k)));
+  const tanda = v => v < 0 ? 'bad' : v > 0 ? 'ok' : 'mut';
+  const pm = v => (v > 0 ? '+' : '') + n(v);
+  // kartu ringkas per pupuk (ketuk untuk memilih)
+  const ring = o => {
+    const tot = Math.max(1, o.fisik), dep = Math.max(0, o.depan) / tot * 100;
+    return `<button class="gs c-${o.k} ${o.k === F.gk ? 'on' : ''}" data-gk="${o.k}">
+      <div class="gs-h"><span><i class="dot"></i>${esc(NAMA[o.k])}</span>${o.fisik < batas && o.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}</div>
+      <div class="gs-v"><b data-cnt="${sak(o.fisik, berat(o.k))}">${sk(o.fisik, o.k)}</b> <span>sak</span></div>
+      <div class="mut sm">depan ${sk(o.depan, o.k)} · belakang ${sk(o.belakang, o.k)}</div>
+      <div class="gs-bar" title="depan / belakang"><i style="width:${o.fisik > 0 ? dep : 0}%"></i></div>
+      <div class="gs-f sm"><span class="mut">Lebih/kurang</span><b class="${tanda(o.lebih)}">${pm(sak(o.lebih, berat(o.k)))} sak</b></div></button>`;
+  };
+  const baris = (l, v, k, cls = '', tip = '') => `<div class="gr ${cls}"><span>${l}${tip ? `<small>${tip}</small>` : ''}</span><b>${sk(v, k)} <small>sak</small></b><em>${n(v)} kg</em></div>`;
+  const detail = !x ? '' : (() => {
+    const k = x.k;
+    return `<div class="card gdet c-${k}">
+      <div class="sec" style="margin-top:0"><h3><i class="dot"></i>${esc(x.pr.nama)}</h3>${isAdmin() ? `<button class="btn sm" data-gb="${k}">${I.gdg} Gudang belakang</button>` : ''}</div>
+      <div class="gt">
+        <div class="gti"><span>Stok gudang</span><b data-cnt="${sak(x.fisik, berat(k))}">${sk(x.fisik, k)}</b><small>depan ${sk(x.depan, k)} · belakang ${sk(x.belakang, k)}</small></div>
+        <div class="gti"><span>Stok i-pubers</span><b>${sk(x.sistem, k)}</b><small>${n(x.sistem)} kg</small></div>
+        <div class="gti"><span>Selisih</span><b class="${tanda(x.selisih)}">${pm(sak(x.selisih, berat(k)))}</b><small>gudang − i-pubers</small></div>
+        <div class="gti"><span>Titipan petani</span><b class="${x.titip > 0 ? 'warn' : ''}">${sk(x.titip, k)}</b><small>sudah input, belum ambil</small></div>
+        <div class="gti big ${x.lebih < 0 ? 'neg' : 'pos'}"><span>Lebih / kurang</span><b>${pm(sak(x.lebih, berat(k)))} sak</b><small>selisih − titipan · ${n(x.lebih)} kg</small></div>
+      </div>
+      <details class="gx" open><summary>Alur stok ${S.tahun}</summary>
+        ${baris('Stok awal', x.awal, k, '', x.awal !== x.awalIp ? `i-pubers ${sk(x.awalIp, k)} sak` : '')}
+        ${baris('+ Masuk dari distributor', x.masuk, k, 'plus')}
+        ${x.lkIn ? baris('+ Masuk dari luar', x.lkIn, k, 'plus') : ''}
+        ${baris('− Diambil petani', x.ambil + x.bi, k, 'min', x.bi ? `termasuk belum input ${sk(x.bi, k)} sak` : '')}
+        ${x.lkOut ? baris('− Dijual ke luar kelompok', x.lkOut, k, 'min') : ''}
+        ${baris('= Stok gudang', x.fisik, k, 'hasil')}
+      </details>
+      <details class="gx"><summary>Keterangan lain</summary>
+        ${baris('Input i-pubers', x.input, k)}${baris('Rencana ke petani', x.rencana, k)}${baris('Milik kios', x.kios, k, '', 'input − rencana')}
+        ${baris('Sisa lebih', x.sisaLebih, k, '', 'selisih stok awal + jual luar + lebih/kurang')}
+      </details></div>`;
+  })();
+  const ms = [...S.stok].filter(r => !F.gm || S.byId[r.id_produk]?.kode === F.gm).sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input)));
+  const masukItem = r => { const k = S.byId[r.id_produk]?.kode;
+    return `<div class="gm c-${k}"><div class="gm-a"><i class="dot"></i></div><div class="grow">
+      <div class="gm-t"><b>${esc(NAMA[k] || S.byId[r.id_produk]?.nama || '')}</b><b>${sk(r.jumlah_masuk, k)} sak</b></div>
+      <div class="gm-t mut sm"><span>${tgl(r.tanggal_input)} · ${jam(r.tanggal_input)}</span><span>${n(r.jumlah_masuk)} kg · ${rp(r.harga_beli_total)}</span></div>
+      <div class="gm-d"><span class="mut sm">${esc(r.id_stok)}${r.keterangan ? ' · ' + esc(r.keterangan) : ''}</span><span class="dokb">${docBtn(r, 'bast', 'BAST')}${docBtn(r, 'nota', 'Nota')}${isAdmin() ? `<button class="btn xs2" data-sted="${esc(r.id_stok)}" title="Ubah">${I.edit}</button><button class="btn xs2 bad" data-stdel="${esc(r.id_stok)}" title="Hapus">${I.trash}</button>` : ''}</span></div>
+    </div></div>`; };
+  const totM = ms.reduce((a, r) => a + Number(r.harga_beli_total || 0), 0);
   el.innerHTML = `<div class="bar"><h2 style="flex:1">Gudang</h2><button class="btn sm" id="keAmbil">${I.truck} Riwayat ambil</button>${isAdmin() ? `<button class="btn pri" id="terima">${I.plus} Terima barang</button>` : ''}</div>
-    <div class="grid g2">${st.map(x => { const R = (l, v, c = '', ind = 0) => `<tr><td style="padding-left:${ind * 10}px">${l}</td><td class="num ${c}">${n(v)} kg</td><td class="num mut">${n(sak(v, berat(x.k)))} sak</td></tr>`, H = t => `<tr><td colspan="3" class="b" style="padding-top:8px;color:var(--ac)">${t}</td></tr>`;
-      return `<div class="card c-${x.k}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px"><b style="flex:1"><i class="dot"></i>${esc(x.pr.nama)}</b>${x.fisik < batas && x.masuk > 0 ? '<span class="tag bad">menipis</span>' : ''}${isAdmin() ? `<button class="btn ic xs" data-gb="${x.k}" title="Ubah stok gudang belakang">${I.gdg}</button>` : ''}</div>
-      <table class="dn" style="margin-top:4px">${H('STOK AWAL')}${R('Gudang', x.awal, '', 1)}${R('i-pubers', x.awalIp, '', 1)}${R('Selisih (gudang − i-pubers)', x.awal - x.awalIp, x.awal - x.awalIp < 0 ? 'bad' : '', 1)}
-      ${H('MASUK')}${R('Dari distributor', x.masuk, '', 1)}${R('Dari luar', x.lkIn, '', 1)}${R('Jumlah masuk', x.masuk + x.lkIn, 'b', 1)}
-      ${H('KELUAR')}${R('Ke petani — sudah foto', x.ambil, '', 1)}${R('Ke petani — belum foto', x.bi, '', 1)}${R('Jumlah ke petani', x.ambil + x.bi, '', 1)}${R('Ke luar', x.lkOut, '', 1)}${R('Jumlah keluar', x.ambil + x.bi + x.lkOut, 'b', 1)}
-      ${H('STOK SAAT INI')}${R('Stok i-pubers', x.sistem, '', 1)}${R('Gudang depan', x.depan, '', 1)}${R('Gudang belakang', x.belakang, '', 1)}${R('Jumlah stok gudang', x.fisik, 'b', 1)}${R('Selisih (gudang − i-pubers)', x.selisih, x.selisih < 0 ? 'bad' : '', 1)}${R('Sdh foto blm ambil', x.titip, x.titip > 0 ? 'warn' : '', 1)}${R('Lebih / kurang', x.lebih, x.lebih < 0 ? 'bad b' : 'b', 1)}
-      ${H('KETERANGAN LAIN')}${R('Sisa lebih', x.sisaLebih, '', 1)}${R('Keluar tahun lalu', x.thnLalu, '', 2)}${R('Keluar tahun ini', x.lkOut, '', 2)}${R('Total keluar', x.thnLalu + x.lkOut, '', 2)}${R('Masih di gudang', x.lebih, x.lebih < 0 ? 'bad b' : 'b', 1)}</table>
-      <div class="sm mut" style="margin-top:6px">Milik kios (input − rencana): ${n(x.kios)} kg · Rencana ke petani: ${n(x.rencana)} kg</div></div>`; }).join('')}</div>
-    <div class="sec"><h3>Riwayat barang masuk</h3></div><div class="card"><div class="tw"><table class="dn"><tr><th>Tanggal</th><th>Produk</th><th class="num">Masuk (kg)</th><th class="num">Harga beli</th><th>Dokumen</th></tr>
-    ${[...S.stok].sort((a, b) => String(b.tanggal_input).localeCompare(String(a.tanggal_input))).map(s => `<tr><td>${tgl(s.tanggal_input)}<div class="mut sm">${jam(s.tanggal_input)}</div>${isAdmin() ? `<div class="rab"><button class="btn xs" data-sted="${esc(s.id_stok)}" title="Ubah">${I.edit}</button><button class="btn xs bad" data-stdel="${esc(s.id_stok)}" title="Hapus">${I.trash}</button></div>` : ''}</td><td>${esc(S.byId[s.id_produk]?.nama || '')}</td><td class="num">${n(s.jumlah_masuk)}</td><td class="num">${rp(s.harga_beli_total)}</td><td class="mut sm">${esc(s.id_stok)}${s.keterangan ? ' · ' + esc(s.keterangan) : ''}
-      <div class="dokb">${docBtn(s, 'bast', 'BAST')}${docBtn(s, 'nota', 'Nota')}</div></td></tr>`).join('')}</table></div></div>`;
+    <div class="gsum ${L.length === 3 ? 'n3' : ''}">${L.map(ring).join('')}</div>
+    ${detail}
+    <div class="card"><div class="sec" style="margin-top:0"><h3>Barang masuk</h3><span class="mut sm">${ms.length} kali · ${rp(totM)}</span></div>
+      <div class="chips" style="margin-bottom:6px">${[['', 'Semua'], ...L.map(o => [o.k, NAMA[o.k]])].map(([k, l]) => `<span class="chip ${(F.gm || '') === k ? 'on' : ''}" data-gm="${k}">${l}</span>`).join('')}</div>
+      <div class="gml">${ms.slice(0, F.glim || 8).map(masukItem).join('') || '<span class="mut">Belum ada barang masuk</span>'}</div>
+      ${ms.length > (F.glim || 8) ? `<div class="c" style="padding-top:8px"><button class="btn sm" id="gmMore">Tampilkan semua (${ms.length})</button></div>` : ''}</div>`;
   const t = $('#terima'); if (t) t.onclick = () => terimaBarang();
   $('#keAmbil').onclick = () => go('ambil');
+  $$('[data-gk]', el).forEach(b => b.onclick = () => { F.gk = b.dataset.gk; gudang(el); const d = $('.gdet', el); d.classList.add('flash'); countUp(d); });
+  $$('[data-gm]', el).forEach(c => c.onclick = () => { F.gm = c.dataset.gm; F.glim = 8; gudang(el); });
+  const gmm = $('#gmMore'); if (gmm) gmm.onclick = () => { F.glim = 9999; gudang(el); };
   $$('[data-sted]', el).forEach(b => b.onclick = () => terimaBarang(S.stok.find(x => x.id_stok === b.dataset.sted)));
   $$('[data-stdel]', el).forEach(b => b.onclick = () => hapusStok(b.dataset.stdel));
   $$('[data-gb]', el).forEach(b => b.onclick = () => formGudangBelakang(st.find(x => x.k === b.dataset.gb)));
